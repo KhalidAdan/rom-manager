@@ -80,6 +80,14 @@ class EJS_GameManager {
     this.EJS.on("exit", () => {
       this.toggleMainLoop(0);
       this.functions.saveSaveFiles();
+      this.FS.syncfs(false, (err) => {
+        console.log("Syncing to IndexedDB");
+        if (err) {
+          console.error("Error syncing to IndexedDB:", err);
+        } else {
+          console.log("Synced to IndexedDB");
+        }
+      });
       setTimeout(() => {
         try {
           window.abort();
@@ -477,8 +485,12 @@ class EJS_GameManager {
     this.functions.saveSaveFiles();
     //this.FS.syncfs(false, () => {});
     this.FS.syncfs(false, (err) => {
-      if (err) console.error("Error syncing to IndexedDB:", err);
-      else console.log("Synced to IndexedDB on exit");
+      console.log("Syncing to IndexedDB");
+      if (err) {
+        console.error("Error syncing to IndexedDB:", err);
+      } else {
+        console.log("Synced to IndexedDB");
+      }
     });
   }
   supportsStates() {

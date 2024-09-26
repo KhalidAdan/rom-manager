@@ -1,6 +1,6 @@
 // app/routes/emulator.tsx
-import type { ActionFunction } from "@remix-run/node";
-import { Form, useActionData, useNavigation } from "@remix-run/react";
+import { ActionFunctionArgs } from "@remix-run/node";
+import { Form, json, useActionData, useNavigation } from "@remix-run/react";
 import { useEffect, useState } from "react";
 
 // declare EmulatorJS global variables
@@ -17,12 +17,16 @@ declare global {
   }
 }
 
-export const action: ActionFunction = async ({ request }) => {
+export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const romName = formData.get("romName");
+
+  if (!romName) {
+    return json({ romName: "" }, { status: 400 });
+  }
   // In the future, we'll query the SQLite DB here
   // For now, we'll just return the ROM name
-  return { romName };
+  return json({ romName: romName as string });
 };
 
 export default function Emulator() {
@@ -45,25 +49,24 @@ export default function Emulator() {
   }, [actionData, isEmulatorLoaded]);
 
   useEffect(() => {
-    if (actionData?.romName) {
+    if (actionData?.romName && isEmulatorLoaded) {
       // Set up EmulatorJS
       window.EJS_player = "#game";
       window.EJS_gameName = actionData.romName;
       window.EJS_biosUrl = "";
-      window.EJS_gameUrl = `/romtest/Fire Emblem - The Binding Blade (T).gba`; // grab from sqlite
-      window.EJS_core = "gba"; // determine this based on the file extension
+      window.EJS_gameUrl = `/romtest/${actionData.romName}.gba`; // Adjust the extension as needed
+      window.EJS_core = "gba"; // You might want to determine this based on the file extension
       window.EJS_pathtodata = "/emulatorjs/data/";
       window.EJS_startOnLoaded = true;
     }
   }, [actionData, isEmulatorLoaded]);
-
   return (
     <div>
       <h1>EmulatorJS</h1>
       {!actionData?.romName ? (
         <Form method="post">
           <select name="romName">
-            <option value="some-uuid">
+            <option value="Fire Emblem - The Binding Blade (T)">
               Fire Emblem - The Binding Blade (T)
             </option>
             {/* Add more ROM options here */}
