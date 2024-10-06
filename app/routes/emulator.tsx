@@ -73,15 +73,16 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
 export let action = async ({ request }: ActionFunctionArgs) => {
   let formData = await request.formData();
-  let romName = formData.get("romName");
+  let romLocation = formData.get("romLocation");
 
-  if (!romName) {
-    return json({ romName: "" }, { status: 400 });
+  if (!romLocation) {
+    return json({ romLocation: "" }, { status: 400 });
   }
+
   // In the future, we'll query the SQLite DB here
   // For now, we'll just return the ROM name
   return json(
-    { romName: romName as string },
+    { romLocation: romLocation as string },
     {
       headers: {
         "Access-Control-Allow-Origin": "*",
@@ -96,23 +97,23 @@ export default function Emulator() {
   let actionData = useActionData<typeof action>();
 
   useEffect(() => {
-    const loadEmulatorAndRom = async () => {
-      if (actionData?.romName) {
+    let loadEmulatorAndRom = async () => {
+      if (actionData?.romLocation) {
         try {
           // Fetch the ROM from the server
-          const response = await fetch(
-            `/resources/rom?path=${actionData.romName}`
+          let response = await fetch(
+            `/resources/rom?path=${actionData.romLocation}`
           );
-          const romBlob = await response.blob();
+          let romBlob = await response.blob();
           console.log("ROM fetched:", romBlob);
 
           // Create an Object URL from the fetched ROM Blob
-          const romURL = URL.createObjectURL(romBlob);
+          let romURL = URL.createObjectURL(romBlob);
 
           // Set up EmulatorJS configuration
           window.EJS_player = "#game";
           window.EJS_gameUrl = romURL;
-          window.EJS_gameName = actionData.romName;
+          window.EJS_gameName = actionData.romLocation;
           window.EJS_biosUrl = "";
           window.EJS_core = "gba"; // TODO: Determine the core dynamically
           window.EJS_pathtodata = "/emulatorjs/data/";
@@ -120,7 +121,7 @@ export default function Emulator() {
 
           // Load EmulatorJS script
           await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
+            let script = document.createElement("script");
             script.src = "/emulatorjs/data/loader.js";
             script.onload = resolve;
             script.onerror = reject;
@@ -143,8 +144,8 @@ export default function Emulator() {
   }, [actionData]);
   return (
     <div>
-      {!actionData || !("romName" in actionData) ? (
-        <RomManager actionData={actionData} games={data as any} />
+      {!actionData || !("romLocation" in actionData) ? (
+        <RomManager games={data as any} />
       ) : (
         <div id="game"></div>
       )}

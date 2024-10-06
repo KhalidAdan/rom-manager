@@ -1,0 +1,28 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model System {
+  id    Int     @id @default(autoincrement())
+  title String
+  Image String?
+  Rom   Rom[]
+}
+
+model Rom {
+  id       Int     @id @default(autoincrement())
+  title    String
+  coverArt String?
+  location String
+  systemId Int
+  //
+  system   System  @relation(fields: [systemId], references: [id])
+}

@@ -1,4 +1,4 @@
-import type { LinksFunction } from "@remix-run/node";
+import { type LinksFunction, LoaderFunctionArgs, json } from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -7,6 +7,10 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import { getHints } from "./lib/client-hints";
+import { getTheme } from "./lib/theme.server";
+import { cn } from "./lib/utils";
+import { useTheme } from "./routes/resources+/set-theme";
 import "./tailwind.css";
 
 export let links: LinksFunction = () => [
@@ -22,9 +26,21 @@ export let links: LinksFunction = () => [
   },
 ];
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  return json({
+    requestInfo: {
+      hints: getHints(request),
+      userPrefs: {
+        theme: getTheme(request),
+      },
+    },
+  });
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
+  let theme = useTheme();
   return (
-    <html lang="en" className="dark h-full w-full">
+    <html lang="en" className={cn(" h-full w-full", theme)}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

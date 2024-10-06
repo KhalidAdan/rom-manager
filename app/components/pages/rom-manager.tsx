@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SUPPORTED_SYSTEMS } from "@/lib/const";
 import { cn } from "@/lib/utils";
+import { ThemeSwitch } from "@/routes/resources+/set-theme";
 import { Form, useNavigation } from "@remix-run/react";
 import { useState } from "react";
 
@@ -12,23 +13,24 @@ export type RomManagerType = {
     image: undefined; // placeholder until we set up folder scanning
     system: (typeof SUPPORTED_SYSTEMS)[number];
   }[];
-  actionData:
-    | {
-        romName: string;
-      }
-    | undefined;
 };
 
-export default function RomManager({ games, actionData }: RomManagerType) {
+export default function RomManager({ games }: RomManagerType) {
   let navigation = useNavigation();
   let [selectedRom, setSelectedRom] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen p-8">
-      <h1 className="text-4xl font-bold mb-2">Rom Manager</h1>
-      <p className="text-muted-foreground mb-6">
-        Built from the ground up to allow you to share your roms with friends.
-      </p>
+    <div className="min-h-screen p-14">
+      <div className="flex justify-between">
+        <div className="flex flex-col">
+          <h1 className="text-4xl font-bold mb-2">Rom Manager</h1>
+          <p className="text-muted-foreground mb-6">
+            Built from the ground up to allow you to share your roms with
+            friends.
+          </p>
+        </div>
+        <ThemeSwitch />
+      </div>
 
       <Card className="">
         <CardContent className="p-6">
@@ -43,14 +45,14 @@ export default function RomManager({ games, actionData }: RomManagerType) {
             {SUPPORTED_SYSTEMS.map((system) => (
               <TabsContent key={system} value={system}>
                 <Form method="POST">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
                     {games
                       .filter((rom) => rom.system === system)
                       .map((rom) => (
                         <button
                           key={rom.title}
-                          value={rom.location}
-                          name="romName"
+                          value={encodeURIComponent(rom.location)}
+                          name="romLocation"
                           className={cn(
                             "relative aspect-square rounded-lg hover:bg-accent border",
                             {
