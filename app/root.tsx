@@ -9,7 +9,7 @@ import {
 
 import "./tailwind.css";
 
-export const links: LinksFunction = () => [
+export let links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -24,34 +24,12 @@ export const links: LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark h-full w-full">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        <style>{`
-          body, html {
-            height: 100%;
-            background-color: black;
-            color: white;
-            font-family: sans-serif;
-          }
-          select, button {
-            padding: 0.6em 0.4em;
-            margin: 0.5em;
-            font-size: 16px;
-            background-color: #444;
-            color: #aaa;
-            border-radius: 0.4em;
-            border: 1px solid #555;
-            cursor: pointer;
-          }
-          select:hover, button:hover {
-            background-color: #666;
-            color: #ddd;
-          }
-        `}</style>
       </head>
       <body>
         {children}

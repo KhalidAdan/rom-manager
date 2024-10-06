@@ -1,6 +1,6 @@
 import type { MetaFunction } from "@remix-run/node";
 
-export const meta: MetaFunction = () => {
+export let meta: MetaFunction = () => {
   return [
     { title: "New Remix App" },
     { name: "description", content: "Welcome to Remix!" },
@@ -53,7 +53,7 @@ export default function Index() {
   );
 }
 
-const resources = [
+let resources = [
   {
     href: "https://remix.run/start/quickstart",
     text: "Quick Start (5 min)",
