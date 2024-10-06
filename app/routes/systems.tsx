@@ -32,7 +32,7 @@ let processFilePathsIntoGameObjects = (
     return {
       title: file.split("\\").reverse().at(0) as string,
       location: file,
-      image: undefined,
+      image: undefined, // eventualy I should send these after scraping
       system: "GBA",
     };
   });

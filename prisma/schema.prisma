@@ -10,11 +10,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Role {
+  id    Int    @id @default(autoincrement())
+  title String @unique // CHECK CONSTRAINT FOR [ADMIN, MODERATOR, VIEWER]
+  // relations
+  users User[]
+
+  @@map("roles")
+}
+
 model System {
   id    Int     @id @default(autoincrement())
   title String
   Image String?
   Rom   Rom[]
+
+  @@map("systems")
 }
 
 model Rom {
@@ -22,7 +33,32 @@ model Rom {
   title    String
   coverArt String?
   location String
-  systemId Int
-  //
+  // relations
+  systemId Int     @map("system_id")
   system   System  @relation(fields: [systemId], references: [id])
+
+  @@map("roms")
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  created_at DateTime  @default(now())
+  updated_at DateTime? @default(now())
+  // relations
+  roleId     Int
+  role       Role      @relation(fields: [roleId], references: [id])
+  sessions   Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id      Int      @id @default(autoincrement())
+  expires DateTime
+  //
+  userId  Int      @map("user_id")
+  user    User     @relation(fields: [userId], references: [id]) //in Db add check constraint
+
+  @@map("sessions")
 }
