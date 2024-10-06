@@ -25,8 +25,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     let fileName = path.basename(fullPath);
     let stat = statSync(fullPath);
 
-    console.log("stat", stat);
-
     let headers = new Headers();
     headers.set("Content-Type", "application/octet-stream");
     headers.set("Content-Disposition", `attachment; filename="${fileName}"`);

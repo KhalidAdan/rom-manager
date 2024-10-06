@@ -52,7 +52,7 @@ export default function RomManager({ games, actionData }: RomManagerType) {
                           value={rom.location}
                           name="romName"
                           className={cn(
-                            "relative aspect-[9/9] rounded-lg hover:bg-accent border",
+                            "relative aspect-square rounded-lg hover:bg-accent border",
                             {
                               active: selectedRom === rom.title,
                             }

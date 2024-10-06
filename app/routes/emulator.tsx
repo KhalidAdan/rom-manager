@@ -4,7 +4,7 @@ import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, useActionData, useLoaderData } from "@remix-run/react";
 import { promises as fs } from "fs";
 import path from "path";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 // declare EmulatorJS global variables
 declare global {
@@ -94,57 +94,53 @@ export default function Emulator() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) throw new Error("From server: " + data.error);
   let actionData = useActionData<typeof action>();
-  let [isEmulatorLoaded, setIsEmulatorLoaded] = useState(false);
 
   useEffect(() => {
-    if (actionData?.romName && !isEmulatorLoaded) {
-      // Load EmulatorJS script
-      let script = document.createElement("script");
-      script.src = "/emulatorjs/data/loader.js";
-      script.onload = () => setIsEmulatorLoaded(true);
-      document.body.appendChild(script);
-
-      return () => {
-        document.body.removeChild(script);
-      };
-    }
-  }, [actionData, isEmulatorLoaded]);
-
-  useEffect(() => {
-    const loadEmulator = async () => {
-      if (actionData?.romName && isEmulatorLoaded) {
+    const loadEmulatorAndRom = async () => {
+      if (actionData?.romName) {
         try {
           // Fetch the ROM from the server
           const response = await fetch(
             `/resources/rom?path=${actionData.romName}`
           );
           const romBlob = await response.blob();
-
-          console.log(romBlob);
+          console.log("ROM fetched:", romBlob);
 
           // Create an Object URL from the fetched ROM Blob
           const romURL = URL.createObjectURL(romBlob);
 
-          // Set up EmulatorJS with the Object URL
+          // Set up EmulatorJS configuration
           window.EJS_player = "#game";
+          window.EJS_gameUrl = romURL;
           window.EJS_gameName = actionData.romName;
-          window.EJS_gameUrl = romURL; // Use the object URL for the game
-          window.EJS_core = "gba"; // Determine the core dynamically if needed
+          window.EJS_biosUrl = "";
+          window.EJS_core = "gba"; // TODO: Determine the core dynamically
           window.EJS_pathtodata = "/emulatorjs/data/";
-          window.EJS_startOnLoaded = true;
+          window.EJS_startOnLoaded = true; // Set this to true
 
-          // Optionally clean up the object URL when done
+          // Load EmulatorJS script
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/emulatorjs/data/loader.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          });
+
+          console.log("EmulatorJS script loaded!");
+
+          // Clean up function
           return () => {
             URL.revokeObjectURL(romURL);
           };
         } catch (error) {
-          console.error("Error loading ROM into EmulatorJS:", error);
+          console.error("Error setting up emulator:", error);
         }
       }
     };
 
-    loadEmulator();
-  }, [actionData, isEmulatorLoaded]);
+    loadEmulatorAndRom();
+  }, [actionData]);
   return (
     <div>
       {!actionData || !("romName" in actionData) ? (
