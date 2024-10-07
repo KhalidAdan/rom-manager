@@ -1,4 +1,6 @@
 node_modules
+
+# prisma sqlite things!
 dev.db
 dev.db-journal
 

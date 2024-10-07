@@ -43,7 +43,6 @@ export default function SettingsPage() {
 
   let saveSettings = () => {
     // Here you would typically save the settings to a backend or local storage
-    console.log("Saving settings:", settings);
     // TODO: Implement actual saving logic here
   };
 

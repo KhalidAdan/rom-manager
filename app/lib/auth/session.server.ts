@@ -5,7 +5,7 @@ import { prisma } from "../prisma.server";
 import { getSessionExpirationDate } from "./auth.server";
 
 // export the whole sessionStorage object
-export let sessionStorage = createCookieSessionStorage({
+export let sessionStore = createCookieSessionStorage({
   cookie: {
     name: "_session", // use any name you want here
     sameSite: "lax", // this helps with CSRF
@@ -26,4 +26,4 @@ export async function makeSession(userId: User["id"]) {
 }
 
 // you can also export the methods individually for your own usage
-export let { getSession, commitSession, destroySession } = sessionStorage;
+export let { getSession, commitSession, destroySession } = sessionStore;

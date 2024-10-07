@@ -10,6 +10,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Settings {
+  id                Int    @id @default(autoincrement())
+  romFolderLocation String
+
+  @@map("settings")
+}
+
 model Role {
   id    Int    @id @default(autoincrement())
   title String @unique // CHECK CONSTRAINT FOR [ADMIN, MODERATOR, VIEWER]
@@ -21,34 +28,39 @@ model Role {
 
 model System {
   id    Int     @id @default(autoincrement())
-  title String
+  title String // CHECK CONSTRAINT FOR [GB, GBC, GBA, SNES]
   Image String?
-  Rom   Rom[]
+  game  Game[]
 
   @@map("systems")
 }
 
-model Rom {
-  id       Int     @id @default(autoincrement())
-  title    String
-  coverArt String?
-  location String
+model Game {
+  id          Int       @id @default(autoincrement())
+  title       String
+  releaseDate DateTime
+  coverArt    String?
+  file        Bytes // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
+  created_at  DateTime  @default(now())
+  updated_at  DateTime? @default(now())
   // relations
-  systemId Int     @map("system_id")
-  system   System  @relation(fields: [systemId], references: [id])
+  systemId    Int       @map("system_id")
+  system      System    @relation(fields: [systemId], references: [id])
 
-  @@map("roms")
+  @@map("games")
 }
 
 model User {
-  id         Int       @id @default(autoincrement())
-  email      String    @unique
-  created_at DateTime  @default(now())
-  updated_at DateTime? @default(now())
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  password    String // hashed before saving
+  created_at  DateTime  @default(now())
+  updated_at  DateTime? @default(now())
+  onboardedAt DateTime?
   // relations
-  roleId     Int
-  role       Role      @relation(fields: [roleId], references: [id])
-  sessions   Session[]
+  roleId      Int
+  role        Role      @relation(fields: [roleId], references: [id])
+  sessions    Session[]
 
   @@map("users")
 }

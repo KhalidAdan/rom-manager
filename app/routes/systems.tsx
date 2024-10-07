@@ -1,10 +1,13 @@
 // app/routes/emulator.tsx
 import RomManager, { RomManagerType } from "@/components/pages/rom-manager";
+import { requireUser } from "@/lib/auth/auth.server";
+import { DATA_DIR, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+import { prisma } from "@/lib/prisma.server";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, useActionData, useLoaderData } from "@remix-run/react";
 import { promises as fs } from "fs";
 import path from "path";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // declare EmulatorJS global variables
 declare global {
@@ -20,43 +23,58 @@ declare global {
   }
 }
 
-let processFilePathsIntoGameObjects = (
+function processFilePathsIntoGameObjects(
   files: string[],
-  extension: string
-): RomManagerType["games"] => {
-  let filteredFiles = files.filter((file) => path.extname(file) === extension);
+  extensions: string[]
+): RomManagerType["games"] {
+  let filteredFiles = files.filter((file) => {
+    return extensions.includes(path.extname(file));
+  });
 
   return filteredFiles.map((file) => {
     if (typeof file !== "string")
       throw new Error("received a non string on server");
+
+    let extension = path.extname(file);
     return {
       title: file.split("\\").reverse().at(0) as string,
       location: file,
       image: undefined, // eventualy I should send these after scraping
-      system: "GBA",
+      system: {
+        title:
+          extension == ".sfc"
+            ? "SNES"
+            : extension.toLocaleUpperCase().replace(".", ""),
+        extension: extension,
+      },
     };
   });
-};
+}
 
-export async function loader({ params }: LoaderFunctionArgs) {
-  let directory = params.directory || "e:/R O M Z";
-  let extension = params.extension || ".gba";
+async function getFilesRecursively(dir: string): Promise<string[]> {
+  let dirents = await fs.readdir(dir, { withFileTypes: true });
+  let files = await Promise.all(
+    dirents.map((dirent) => {
+      let res = path.resolve(dir, dirent.name);
+      return dirent.isDirectory() ? getFilesRecursively(res) : res;
+    })
+  );
+  return Array.prototype.concat(...files);
+}
 
-  async function getFilesRecursively(dir: string): Promise<string[]> {
-    let dirents = await fs.readdir(dir, { withFileTypes: true });
-    let files = await Promise.all(
-      dirents.map((dirent) => {
-        let res = path.resolve(dir, dirent.name);
-        return dirent.isDirectory() ? getFilesRecursively(res) : res;
-      })
-    );
-    return Array.prototype.concat(...files);
-  }
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  await requireUser(request);
+  let { romFolderLocation } = await prisma.settings.findFirstOrThrow();
+
+  let directory = romFolderLocation;
+  let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+    (system) => system.extension
+  );
 
   try {
     let allFiles = await getFilesRecursively(directory);
 
-    let games = processFilePathsIntoGameObjects(allFiles, extension);
+    let games = processFilePathsIntoGameObjects(allFiles, extensions);
 
     return json(games, {
       headers: {
@@ -93,8 +111,10 @@ export let action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Emulator() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) throw new Error("From server: " + data.error);
   let actionData = useActionData<typeof action>();
+  let [selectedSystem, setSelectedSystem] = useState("gba");
+
+  if ("error" in data) throw new Error("From server: " + data.error);
 
   useEffect(() => {
     let loadEmulatorAndRom = async () => {
@@ -105,7 +125,6 @@ export default function Emulator() {
             `/resources/rom?path=${actionData.romLocation}`
           );
           let romBlob = await response.blob();
-          console.log("ROM fetched:", romBlob);
 
           // Create an Object URL from the fetched ROM Blob
           let romURL = URL.createObjectURL(romBlob);
@@ -115,8 +134,8 @@ export default function Emulator() {
           window.EJS_gameUrl = romURL;
           window.EJS_gameName = actionData.romLocation;
           window.EJS_biosUrl = "";
-          window.EJS_core = "gba"; // TODO: Determine the core dynamically
-          window.EJS_pathtodata = "/emulatorjs/data/";
+          window.EJS_core = selectedSystem; // TODO: Determine the core dynamically
+          window.EJS_pathtodata = DATA_DIR;
           window.EJS_startOnLoaded = true; // Set this to true
 
           // Load EmulatorJS script
@@ -127,8 +146,6 @@ export default function Emulator() {
             script.onerror = reject;
             document.body.appendChild(script);
           });
-
-          console.log("EmulatorJS script loaded!");
 
           // Clean up function
           return () => {
@@ -145,9 +162,12 @@ export default function Emulator() {
   return (
     <div>
       {!actionData || !("romLocation" in actionData) ? (
-        <RomManager games={data as any} />
+        <RomManager
+          games={data as RomManagerType["games"]}
+          setSelectedSystem={setSelectedSystem}
+        />
       ) : (
-        <div id="game"></div>
+        <div id="game" className="h-full w-full"></div>
       )}
     </div>
   );

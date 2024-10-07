@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma.server";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { createReadStream, existsSync, statSync } from "fs";
 import path from "path";
@@ -5,14 +6,15 @@ import path from "path";
 export async function loader({ request }: LoaderFunctionArgs) {
   let url = new URL(request.url);
   let filePath = url.searchParams.get("path");
+  let { romFolderLocation } = await prisma.settings.findFirstOrThrow();
 
   if (!filePath) {
     return new Response("ROM path is required", { status: 400 });
   }
 
   try {
-    let allowedDirectory = process.env.ROM_DIRECTORY || "e:\\R O M Z";
-    let fullPath = path.resolve(allowedDirectory, filePath);
+    let allowedDirectory = romFolderLocation;
+    let fullPath = path.resolve(allowedDirectory, decodeURIComponent(filePath));
 
     if (!fullPath.startsWith(allowedDirectory)) {
       return new Response("Invalid ROM path", { status: 403 });

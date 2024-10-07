@@ -1,19 +1,36 @@
-import { authenticator } from "@/lib/auth/auth.server";
-import { Provider } from "@/lib/auth/providers";
+import { authenticator, sessionKeyPrefix } from "@/lib/auth/auth.server";
+import { Provider } from "@/lib/auth/providers.server";
+import {
+  commitSession,
+  getSession,
+  makeSession,
+} from "@/lib/auth/session.server";
 import { ActionFunctionArgs, redirect } from "@remix-run/node";
 
 export async function loader() {
-  redirect("/login");
+  return redirect("/authenticate");
 }
 
-export async function action({ request, params }: ActionFunctionArgs) {
-  let inviteLink = new URL(request.url).searchParams.get("inviteLink");
+export async function action({ request, params, context }: ActionFunctionArgs) {
   let providerName = Provider.parse(params.provider);
-  return await authenticator.authenticate(providerName, request, {
-    successRedirect:
-      providerName === "TOTP"
-        ? `/verify${inviteLink ? `?inviteLink=${inviteLink}` : ""}`
-        : undefined,
-    failureRedirect: "/login",
+  let user = await authenticator.authenticate(providerName, request, {
+    failureRedirect: "/authenticate",
   });
+
+  let { id } = await makeSession(user.id);
+
+  let session = await getSession(request.headers.get("Cookie"));
+
+  session.set(sessionKeyPrefix, id);
+  session.set("user", user);
+  session.set("strategy", providerName);
+
+  let headers = new Headers({
+    "Set-Cookie": await commitSession(session),
+  });
+
+  if (!user.onboardedAt) {
+    return redirect("/onboarding", { headers });
+  }
+  return redirect("/systems", { headers });
 }

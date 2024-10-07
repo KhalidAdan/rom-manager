@@ -1,10 +1,10 @@
 // app/services/auth.server.ts
-import { getSession, sessionStorage } from "@/lib/auth/session.server";
+import { getSession, sessionStore } from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
 import { redirect } from "@remix-run/node";
 import { Authenticator } from "remix-auth";
 import { prisma } from "../prisma.server";
-import { providers } from "./providers";
+import { providers } from "./providers.server";
 
 // Session configuration
 export let SESSION_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 14; // 14 days
@@ -12,7 +12,7 @@ export let getSessionExpirationDate = () =>
   new Date(Date.now() + SESSION_EXPIRATION_TIME);
 export let sessionKeyPrefix = "sessionId" as const;
 
-export let authenticator = new Authenticator<User>(sessionStorage, {
+export let authenticator = new Authenticator<User>(sessionStore, {
   sessionKey: sessionKeyPrefix,
   throwOnError: true,
 });
@@ -64,7 +64,7 @@ export async function requireUser(
       }
     }
     let loginParams = redirectTo ? new URLSearchParams({ redirectTo }) : null;
-    let loginRedirect = ["/login", loginParams?.toString()]
+    let loginRedirect = ["/authenticate", loginParams?.toString()]
       .filter(Boolean)
       .join("?");
 
