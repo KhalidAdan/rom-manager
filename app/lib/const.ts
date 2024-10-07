@@ -14,3 +14,6 @@ export let SUPPORTED_SYSTEMS_WITH_EXTENSIONS = [
 ];
 
 export let DATA_DIR = "/emulatorjs/data/";
+
+export let prettifyROMTitles = (input: string) =>
+  input.replace(/\s*\([^)]*\)|\.\w+$/g, "");

@@ -1,12 +1,18 @@
 // app/routes/emulator.tsx
-import RomManager, { RomManagerType } from "@/components/pages/rom-manager";
+import RomManager, {
+  RomManagerType,
+  RomSelectionSchema,
+} from "@/components/pages/rom-manager";
 import { requireUser } from "@/lib/auth/auth.server";
 import { DATA_DIR, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+import {
+  getFilesRecursively,
+  processFilePathsIntoGameObjects,
+} from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
+import { parseWithZod } from "@conform-to/zod";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, useActionData, useLoaderData } from "@remix-run/react";
-import { promises as fs } from "fs";
-import path from "path";
 import { useEffect, useState } from "react";
 
 // declare EmulatorJS global variables
@@ -23,45 +29,6 @@ declare global {
   }
 }
 
-function processFilePathsIntoGameObjects(
-  files: string[],
-  extensions: string[]
-): RomManagerType["games"] {
-  let filteredFiles = files.filter((file) => {
-    return extensions.includes(path.extname(file));
-  });
-
-  return filteredFiles.map((file) => {
-    if (typeof file !== "string")
-      throw new Error("received a non string on server");
-
-    let extension = path.extname(file);
-    return {
-      title: file.split("\\").reverse().at(0) as string,
-      location: file,
-      image: undefined, // eventualy I should send these after scraping
-      system: {
-        title:
-          extension == ".sfc"
-            ? "SNES"
-            : extension.toLocaleUpperCase().replace(".", ""),
-        extension: extension,
-      },
-    };
-  });
-}
-
-async function getFilesRecursively(dir: string): Promise<string[]> {
-  let dirents = await fs.readdir(dir, { withFileTypes: true });
-  let files = await Promise.all(
-    dirents.map((dirent) => {
-      let res = path.resolve(dir, dirent.name);
-      return dirent.isDirectory() ? getFilesRecursively(res) : res;
-    })
-  );
-  return Array.prototype.concat(...files);
-}
-
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireUser(request);
   let { romFolderLocation } = await prisma.settings.findFirstOrThrow();
@@ -73,8 +40,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     let allFiles = await getFilesRecursively(directory);
-
-    let games = processFilePathsIntoGameObjects(allFiles, extensions);
+    let games = await processFilePathsIntoGameObjects(allFiles, extensions);
 
     return json(games, {
       headers: {
@@ -90,17 +56,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export let action = async ({ request }: ActionFunctionArgs) => {
-  let formData = await request.formData();
-  let romLocation = formData.get("romLocation");
+  await requireUser(request);
 
-  if (!romLocation) {
-    return json({ romLocation: "" }, { status: 400 });
+  let formData = await request.formData();
+
+  let submission = parseWithZod(formData, {
+    schema: RomSelectionSchema,
+  });
+
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
   }
+
+  let { romLocation } = submission.value;
 
   // In the future, we'll query the SQLite DB here
   // For now, we'll just return the ROM name
   return json(
-    { romLocation: romLocation as string },
+    { romLocation },
     {
       headers: {
         "Access-Control-Allow-Origin": "*",
@@ -118,7 +93,7 @@ export default function Emulator() {
 
   useEffect(() => {
     let loadEmulatorAndRom = async () => {
-      if (actionData?.romLocation) {
+      if (actionData && "romLocation" in actionData) {
         try {
           // Fetch the ROM from the server
           let response = await fetch(

@@ -36,18 +36,31 @@ model System {
 }
 
 model Game {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   title       String
   releaseDate DateTime
   coverArt    String?
-  file        Bytes // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
-  created_at  DateTime  @default(now())
-  updated_at  DateTime? @default(now())
+  file        Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
+  summary     String
+
+  created_at DateTime  @default(now())
+  updated_at DateTime? @default(now())
   // relations
-  systemId    Int       @map("system_id")
-  system      System    @relation(fields: [systemId], references: [id])
+  systemId   Int       @map("system_id")
+  system     System    @relation(fields: [systemId], references: [id])
+  Genre      Genre[]
 
   @@map("games")
+}
+
+model Genre {
+  id     Int    @id @default(autoincrement())
+  name   String
+  // relations
+  gameId Int
+  games  Game   @relation(fields: [gameId], references: [id])
+
+  @@map("genres")
 }
 
 model User {

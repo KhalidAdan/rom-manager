@@ -7,6 +7,8 @@ let envVariables = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CALLBACK_URL: z.string(),
+  TWITCH_CLIENT_ID: z.string(),
+  TWITCH_SECRET: z.string(),
 });
 
 try {

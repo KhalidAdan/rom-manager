@@ -32,6 +32,108 @@ let OnboardingSchema = z.object({
   romFolderLocation: z.string(),
 });
 
+export async function fetchGameData(
+  gameQuery: string,
+  clientId: string,
+  accessToken: string
+) {
+  try {
+    const response = await fetch("https://api.igdb.com/v4/games", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Client-ID": clientId,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: `
+        fields name, first_release_date, cover.url;
+        where name ~ "${gameQuery}";
+      `,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch data for: ${gameQuery}`);
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function processGameData(gameData: any) {
+  return {
+    title: gameData.name,
+    releaseDate: new Date(gameData.first_release_date * 1000), // Convert from Unix timestamp to JS Date
+    coverArt: gameData.cover?.url || null,
+    file: null, // You’ll handle file uploads separately
+    created_at: new Date(),
+    updated_at: new Date(),
+    systemId: 1, // This is just a placeholder, you'll handle the relation
+  };
+}
+
+async function fetchMultipleGames(
+  gameQueries: string[],
+  clientId: string,
+  accessToken: string
+) {
+  const promises = gameQueries.map((gameQuery) =>
+    fetchGameData(gameQuery, clientId, accessToken)
+  );
+
+  const results = await Promise.allSettled(promises);
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled" && result.value.success) {
+      const processedGameData = processGameData(result.value.data[0]); // Assuming IGDB returns one game per query
+      console.log(
+        `Processed Data for ${gameQueries[index]}:`,
+        processedGameData
+      );
+    } else {
+      console.error(
+        `Error fetching data for ${gameQueries[index]} with status:`,
+        result.status
+      );
+    }
+  });
+
+  return results;
+}
+
+async function getIGDBAccessToken() {
+  const tokenUrl = "https://id.twitch.tv/oauth2/token";
+  const params = new URLSearchParams({
+    client_id: process.env.TWITCH_CLIENT_ID,
+    client_secret: process.env.TWITCH_SECRET,
+    grant_type: "client_credentials",
+  });
+
+  try {
+    const response = await fetch(`${tokenUrl}?${params.toString()}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get access token: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error("Error fetching Twitch access token:", error);
+    throw error;
+  }
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   return await requireUser(request);
 }
@@ -77,6 +179,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   //TODO:  download all of the GBA, GB, GBC, SNES games to SQLite
+  let accessToken = getIGDBAccessToken();
 
   await prisma.settings
     .create({
