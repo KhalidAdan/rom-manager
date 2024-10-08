@@ -5,6 +5,7 @@ import {
   getSession,
   makeSession,
 } from "@/lib/auth/session.server";
+import { prisma } from "@/lib/prisma.server";
 import { ActionFunctionArgs, redirect } from "@remix-run/node";
 
 export async function loader() {
@@ -29,8 +30,10 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     "Set-Cookie": await commitSession(session),
   });
 
-  if (!user.onboardedAt) {
+  let settings = await prisma.settings.findFirst();
+
+  if (settings == null) {
     return redirect("/onboarding", { headers });
   }
-  return redirect("/systems", { headers });
+  return redirect("/explore", { headers });
 }

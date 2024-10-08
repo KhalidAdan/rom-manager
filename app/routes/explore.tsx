@@ -5,10 +5,6 @@ import RomManager, {
 } from "@/components/pages/rom-manager";
 import { requireUser } from "@/lib/auth/auth.server";
 import { DATA_DIR, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
-import {
-  getFilesRecursively,
-  processFilePathsIntoGameObjects,
-} from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { parseWithZod } from "@conform-to/zod";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
@@ -39,8 +35,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
 
   try {
-    let allFiles = await getFilesRecursively(directory);
-    let games = await processFilePathsIntoGameObjects(allFiles, extensions);
+    let games = await prisma.game.findMany({
+      select: {
+        title: true,
+        coverArt: true,
+        system: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
 
     return json(games, {
       headers: {

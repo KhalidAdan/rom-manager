@@ -1,14 +1,3 @@
-import { requireUser } from "@/lib/auth/auth.server";
-import { prisma } from "@/lib/prisma.server";
-import { parseWithZod } from "@conform-to/zod";
-import {
-  ActionFunctionArgs,
-  json,
-  LoaderFunctionArgs,
-  redirect,
-} from "@remix-run/node";
-import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,9 +8,24 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { requireUser } from "@/lib/auth/auth.server";
+import {
+  prettifyROMTitles,
+  SUPPORTED_SYSTEMS_WITH_EXTENSIONS,
+} from "@/lib/const";
+import {
+  getFilesRecursively,
+  processFilePathsIntoGameObjects,
+} from "@/lib/fs.server";
+import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import { parseWithZod } from "@conform-to/zod";
+import { Genre } from "@prisma/client";
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
 import { Form } from "@remix-run/react";
+import { promises as fs } from "fs";
 import { existsSync } from "node:fs";
+import { z } from "zod";
 
 enum Intent {
   SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
@@ -31,80 +35,6 @@ let OnboardingSchema = z.object({
   intent: z.string(),
   romFolderLocation: z.string(),
 });
-
-export async function fetchGameData(
-  gameQuery: string,
-  clientId: string,
-  accessToken: string
-) {
-  try {
-    const response = await fetch("https://api.igdb.com/v4/games", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Client-ID": clientId,
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: `
-        fields name, first_release_date, cover.url;
-        where name ~ "${gameQuery}";
-      `,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data for: ${gameQuery}`);
-    }
-
-    const data = await response.json();
-    return { success: true, data };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-function processGameData(gameData: any) {
-  return {
-    title: gameData.name,
-    releaseDate: new Date(gameData.first_release_date * 1000), // Convert from Unix timestamp to JS Date
-    coverArt: gameData.cover?.url || null,
-    file: null, // You’ll handle file uploads separately
-    created_at: new Date(),
-    updated_at: new Date(),
-    systemId: 1, // This is just a placeholder, you'll handle the relation
-  };
-}
-
-async function fetchMultipleGames(
-  gameQueries: string[],
-  clientId: string,
-  accessToken: string
-) {
-  const promises = gameQueries.map((gameQuery) =>
-    fetchGameData(gameQuery, clientId, accessToken)
-  );
-
-  const results = await Promise.allSettled(promises);
-
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled" && result.value.success) {
-      const processedGameData = processGameData(result.value.data[0]); // Assuming IGDB returns one game per query
-      console.log(
-        `Processed Data for ${gameQueries[index]}:`,
-        processedGameData
-      );
-    } else {
-      console.error(
-        `Error fetching data for ${gameQueries[index]} with status:`,
-        result.status
-      );
-    }
-  });
-
-  return results;
-}
 
 async function getIGDBAccessToken() {
   const tokenUrl = "https://id.twitch.tv/oauth2/token";
@@ -134,12 +64,16 @@ async function getIGDBAccessToken() {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   return await requireUser(request);
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
-  let user = await requireUser(request);
+  await requireUser(request);
   let formData = await request.formData();
 
   let submission = parseWithZod(formData, {
@@ -178,43 +112,141 @@ export async function action({ request, params }: ActionFunctionArgs) {
     );
   }
 
-  //TODO:  download all of the GBA, GB, GBC, SNES games to SQLite
-  let accessToken = getIGDBAccessToken();
+  let [accessToken, allFiles] = await Promise.all([
+    getIGDBAccessToken(),
+    getFilesRecursively(romFolderLocation),
+  ]);
 
-  await prisma.settings
-    .create({
+  console.log("accessToken", accessToken);
+
+  let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+    (system) => system.extension
+  );
+
+  let games = processFilePathsIntoGameObjects(allFiles, extensions).map(
+    (game) => ({
+      ...game,
+      title: prettifyROMTitles(game.title).replace(" - ", " "),
+    })
+  );
+
+  try {
+    console.log("processing transaction");
+    await prisma.$transaction(
+      async (txn) => {
+        for (const {
+          title,
+          location,
+          // summary,
+          // coverArt,
+          // backgroundImage,
+          system,
+        } of games) {
+          console.log(`---`, title);
+          let romBuffer = await fs.readFile(location);
+
+          let response = await fetchGameMetadata(
+            process.env.TWITCH_CLIENT_ID,
+            accessToken,
+            title
+          );
+          let body = await response
+            .json()
+            .catch((err) => console.error("GETTING IMAGES ERROR", err));
+
+          let game = body[0];
+          console.log(game);
+
+          let coverArt;
+          if (game.cover && "url" in game.cover) {
+            coverArt = game.cover.url.slice(2).replace("t_thumb", "t_720p");
+          }
+
+          let backgroundImage;
+          if (game.artworks) {
+            console.log("game artwork found", game.artworks);
+            backgroundImage = game.artworks[0].url // ! THIS DOES NOT WORK
+              .slice(2)
+              .replace("t_thumb", "t_720p");
+          }
+
+          await txn.game.create({
+            data: {
+              title,
+              file: romBuffer,
+              releaseDate: new Date(),
+              summary: game.summary,
+              coverArt,
+              backgroundImage,
+              system: {
+                connectOrCreate: {
+                  where: {
+                    title: system.title,
+                  },
+                  create: {
+                    title: system.title,
+                    extension: system.extension,
+                  },
+                },
+              },
+              genres: game.genres
+                ? {
+                    createMany: {
+                      data: [
+                        ...game.genres.map((genre: Genre) => {
+                          return {
+                            name: genre.name,
+                          };
+                        }),
+                      ],
+                    },
+                  }
+                : undefined,
+            },
+          });
+          await sleep(300); // IGDB rate limits us
+          console.log(`${title} completed processing and inserted`);
+        }
+      },
+      {
+        timeout: 80000,
+      }
+    );
+    console.log("transaction completed!");
+
+    await prisma.settings.create({
       data: {
         romFolderLocation,
+        onboardingComplete: new Date(),
       },
-    })
-    .catch((err) => {
-      console.error("Failed to create settings", err);
-      return json(
-        submission.reply({
-          formErrors: ["Failed to create settings"],
-        }),
-        { status: 500 }
-      );
     });
 
-  await prisma.user
-    .update({
-      where: { id: user.id },
-      data: {
-        onboardedAt: new Date(),
-      },
-    })
-    .catch((err) => {
-      console.error("Failed to update user onboarding status", err);
-      return json(
-        submission.reply({
-          formErrors: ["Failed to update user onboarding status"],
-        }),
-        { status: 500 }
-      );
-    });
+    console.log("Updated settings, onboarding complete!");
 
-  return redirect("/systems");
+    return null;
+    //return redirect("/explore");
+  } catch (error) {
+    console.error("Transaction failed: ", error);
+    return json(submission.reply(), { status: 500 });
+  }
+}
+
+async function fetchGameMetadata(
+  clientId: string,
+  accessToken: string,
+  searchQuery: string
+) {
+  return fetch("https://api.igdb.com/v4/games", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Client-ID": clientId,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: `fields id, name, summary, total_rating, total_rating_count, platforms.name, cover.*, first_release_date, genres.name, artworks.url;
+search "${searchQuery}";
+limit 1;`.trim(),
+  });
 }
 
 export default function Onboarding() {

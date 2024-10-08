@@ -5,7 +5,7 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await authenticator.isAuthenticated(request, {
-    successRedirect: "/systems",
+    successRedirect: "/explore",
   });
 
   let session = await getSession(request.headers.get("cookie"));

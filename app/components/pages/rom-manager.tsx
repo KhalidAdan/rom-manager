@@ -2,10 +2,9 @@ import {
   prettifyROMTitles,
   SUPPORTED_SYSTEMS_WITH_EXTENSIONS,
 } from "@/lib/const";
+import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/routes/resources+/set-theme";
-import { getFormProps, useForm } from "@conform-to/react";
-import { getZodConstraint } from "@conform-to/zod";
-import { Form, useNavigation } from "@remix-run/react";
+import { Link } from "@remix-run/react";
 import { Dispatch, SetStateAction } from "react";
 import { z } from "zod";
 import {
@@ -19,8 +18,7 @@ import {
 export type RomManagerType = {
   games: {
     title: string;
-    location: string;
-    image: null; // placeholder until we set up folder scanning
+    coverArt: string | null; // placeholder until we set up folder scanning
     system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
   }[];
   setSelectedSystem: Dispatch<SetStateAction<string>>;
@@ -35,11 +33,6 @@ export default function RomManager({
   games,
   setSelectedSystem,
 }: RomManagerType) {
-  let navigation = useNavigation();
-  let [form] = useForm({
-    constraint: getZodConstraint(RomSelectionSchema),
-  });
-
   return (
     <div className="min-h-screen p-14">
       <div className="flex justify-between">
@@ -71,19 +64,27 @@ export default function RomManager({
                       key={rom.title}
                       className="pl-2 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
                     >
-                      <Form method="POST" {...getFormProps(form)}>
+                      <Link
+                        to={`/details/${title.toLocaleLowerCase()}/${prettifyROMTitles(
+                          rom.title
+                        )}`}
+                        prefetch="intent"
+                      >
                         <button
-                          className="aspect-[3/4] relative group cursor-pointer overflow-hidden rounded-lg"
-                          key={rom.title}
-                          value={encodeURIComponent(rom.location)}
-                          name="romLocation"
+                          className={cn(
+                            "aspect-[3/4] relative group cursor-pointer overflow-hidden rounded-lg"
+                          )}
                           type="submit"
-                          disabled={navigation.state === "submitting"}
                         >
                           <img
-                            src={rom.image ?? "https://placehold.co/600x800"}
+                            src={
+                              `http://${rom.coverArt}` ??
+                              "https://placehold.co/300x400"
+                            }
+                            width={300}
+                            height={400}
                             alt={rom.title}
-                            className="transition-transform duration-300 ease-in-out object-cover group-hover:scale-110"
+                            className="transition-transform duration-300 ease-in-out object-cover border group-hover:scale-110"
                           />
                           <div className="absolute inset-0 text-white bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-75 transition-opacity duration-300 p-4">
                             <p className="absolute bottom-10 left-2 right-2 text-2xl font-medium text-center">
@@ -91,7 +92,7 @@ export default function RomManager({
                             </p>
                           </div>
                         </button>
-                      </Form>
+                      </Link>
                     </CarouselItem>
                   ))}
               </CarouselContent>

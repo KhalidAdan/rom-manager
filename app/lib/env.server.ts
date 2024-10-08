@@ -9,6 +9,7 @@ let envVariables = z.object({
   GOOGLE_CALLBACK_URL: z.string(),
   TWITCH_CLIENT_ID: z.string(),
   TWITCH_SECRET: z.string(),
+  GIANTBOMB_API_KEY: z.string(),
 });
 
 try {

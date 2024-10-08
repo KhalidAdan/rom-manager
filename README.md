@@ -23,8 +23,8 @@ Powered by IGDB, which needs a twitch.tv client ID, which is pretty dumb. [Docs]
 ## TODO
 
 - [x] Add summary, total rating and rating count to Game model, add genre model with ID and Name
-- [ ] Add an intermediate screen to inspect the game before hitting a play button like Netflix? That way the Rom selector could be a carousel of cover art!
 - [ ] Scan ROMs for their metadata
+- [ ] Add an intermediate screen to inspect the game before hitting a play button like Netflix? That way the Rom selector could be a carousel of cover art!
 - [ ] Consider storing API keys in app after salting sand hashing them, then managing them via UI
 - [ ] Roms must be borrowed before they are available to anyone
 - [ ] When locks are forcibly removed by a moderator or admin, use server sent events to inform the user they have 5 minutes to extract their save file
@@ -34,3 +34,46 @@ Powered by IGDB, which needs a twitch.tv client ID, which is pretty dumb. [Docs]
 - [ ] Re-scan rom location folder? Allow different libraries per system? Give the user more control over how they store their files
 - [ ] Last played games, like the last 5?
 - [ ] Favourites? Completed Games?
+
+### scratchpad
+
+```
+curl 'https://api.igdb.com/v4/games' \
+-d 'fields name,first_release_date,cover.url; search "Fire Emblem - The Binding Blade"; limit 1;' \
+-H 'Client-ID: CLIENT ID' \
+-H 'Authorization: Bearer TOKEN' \
+-H 'Accept: application/json';
+
+
+query games "tr"{
+fields name, first_release_date;
+search "Fire Emblem";
+};
+query games "tr"{
+fields name, first_release_date;
+search "Advance Wars";
+};
+query games "tr"{
+fields name, first_release_date;
+where id = 10229;
+};
+236813
+
+query GetAutocompleteSuggestions($search: String!, $limit: Int) {
+  autocomplete(search: $search, limit: $limit) {
+    options {
+      id
+      value
+      modelType
+      cloudinary
+      url
+      __typename
+      }
+    __typename
+  }
+}
+```
+
+fields id, name, summary, total_rating, total_rating_count, platforms.name, cover.\*, first_release_date, genres.name, artworks.url;
+where name = "Advance Wars";
+limit 1;

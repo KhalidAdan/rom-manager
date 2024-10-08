@@ -11,8 +11,9 @@ datasource db {
 }
 
 model Settings {
-  id                Int    @id @default(autoincrement())
-  romFolderLocation String
+  id                 Int       @id @default(autoincrement())
+  romFolderLocation  String
+  onboardingComplete DateTime?
 
   @@map("settings")
 }
@@ -27,28 +28,30 @@ model Role {
 }
 
 model System {
-  id    Int     @id @default(autoincrement())
-  title String // CHECK CONSTRAINT FOR [GB, GBC, GBA, SNES]
-  Image String?
-  game  Game[]
+  id        Int     @id @default(autoincrement())
+  title     String  @unique // CHECK CONSTRAINT FOR [GB, GBC, GBA, SNES] 
+  extension String
+  image     String?
+  game      Game[]
 
   @@map("systems")
 }
 
 model Game {
-  id          Int      @id @default(autoincrement())
-  title       String
-  releaseDate DateTime
-  coverArt    String?
-  file        Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
-  summary     String
+  id              Int      @id @default(autoincrement())
+  title           String
+  releaseDate     DateTime
+  coverArt        String?
+  backgroundImage String?
+  file            Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
+  summary         String
 
   created_at DateTime  @default(now())
   updated_at DateTime? @default(now())
   // relations
   systemId   Int       @map("system_id")
   system     System    @relation(fields: [systemId], references: [id])
-  Genre      Genre[]
+  genres     Genre[]
 
   @@map("games")
 }
@@ -64,16 +67,15 @@ model Genre {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  email       String    @unique
-  password    String // hashed before saving
-  created_at  DateTime  @default(now())
-  updated_at  DateTime? @default(now())
-  onboardedAt DateTime?
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
+  password   String // hashed before saving
+  created_at DateTime  @default(now())
+  updated_at DateTime? @default(now())
   // relations
-  roleId      Int
-  role        Role      @relation(fields: [roleId], references: [id])
-  sessions    Session[]
+  roleId     Int
+  role       Role      @relation(fields: [roleId], references: [id])
+  sessions   Session[]
 
   @@map("users")
 }
