@@ -58,3 +58,9 @@ ROM scanning is powered by IGDB, which requires a Twitch.tv client ID. Follow th
 - Remember to export your save files before making any significant changes.
 - This application is intended for personal use with legally obtained ROMs.
 - Always respect copyright laws and game ownership rights.
+
+## Images
+
+![Home page](/public/boy-playing-retro-games.webp)
+![Explore page](/public/explore.jpg)
+![Details Page](/public/details.jpg)
