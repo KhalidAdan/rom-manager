@@ -61,6 +61,6 @@ ROM scanning is powered by IGDB, which requires a Twitch.tv client ID. Follow th
 
 ## Images
 
-![Home page](/public/boy-playing-retro-games.webp)
+![Home page](/public/home.jpg)
 ![Explore page](/public/explore.jpg)
 ![Details Page](/public/details.jpg)
