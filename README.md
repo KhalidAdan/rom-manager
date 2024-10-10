@@ -1,79 +1,60 @@
-# Rom Managing
+# ROMSTHO
 
-A way to share rom with family and friends. Best used with apps like Tailscale.
+ROMSTHO is a modern platform for retro game enthusiasts, allowing you to reconnect with the past and share the magic of classic gaming adventures with family and friends.
+Features
+
+- Extensive Game Library: Access a wide range of classic games from systems like GBA, GBC, and SNES.
+- Rich Game Information: View detailed game metadata, including release dates, genres, and descriptions.
+- Emulation: Play your favorite retro games directly in your browser.
+- User-Friendly Interface: Navigate through a sleek, modern interface that celebrates gaming nostalgia.
+- Personalization: Add games to your favorites for quick access.
+- Family and Friends Sharing: Easily share your game library with others (works best with apps like Tailscale).
 
 ## Supported Systems
 
-- GBA
-- GBC
-- SNES
+- Game Boy Advance (GBA)
+- Game Boy Color (GBC)
+- Super Nintendo Entertainment System (SNES)
+
+## Technical Details
+
+- Built with EmulatorJS for in-browser game emulation.
+- Uses IGDB API for fetching game metadata.
+- Backend powered by Prisma for efficient data management.
+
+## Setup and Installation
+
+Clone the repository:
+
+```
+git clone https://github.com/KhalidAdan/rom-manager.git
+```
+
+Install dependencies:
+
+```
+cd romstho
+npm install
+```
+
+Set up your environment variables (including IGDB API keys).
+Run the development server:
+
+```
+npm run dev
+```
 
 ## Working with EmulatorJS
 
-EmulatorJS is in the public/ folder for easy manipulation fo the emulator at runtime in dev. This way you can add any cores you like for retroarch and mess with things like emscripten. Any changes to emulatorJS will need to be minified via `public/emulatorjs/data/minify/index.js`.
+EmulatorJS is located in the public/ folder for easy manipulation of the emulator at runtime in dev. You can add any cores you like for RetroArch and experiment with emscripten settings.
+Note: Any changes to EmulatorJS will need to be minified via public/emulatorjs/data/minify/index.js.
 
-## Note
+## ROM Scanning
 
-You need to export your save files before
+ROM scanning is powered by IGDB, which requires a Twitch.tv client ID. Follow the IGDB documentation to set up your API access.
 
-## Scanning
+## Important Notes
 
-Powered by IGDB, which needs a twitch.tv client ID, which is pretty dumb. [Docs](https://api-docs.igdb.com/#getting-started)
-
-## TODO
-
-- [x] Add summary, total rating and rating count to Game model, add genre model with ID and Name
-- [ ] Scan ROMs for their metadata
-- [ ] Add an intermediate screen to inspect the game before hitting a play button like Netflix? That way the Rom selector could be a carousel of cover art!
-- [ ] Consider storing API keys in app after salting sand hashing them, then managing them via UI
-- [ ] Roms must be borrowed before they are available to anyone
-- [ ] When locks are forcibly removed by a moderator or admin, use server sent events to inform the user they have 5 minutes to extract their save file
-- [ ] Signups need to be allowed by an administrator before they can
-- [ ] save ROMS to SQLite? That way you can keep your cold storage and the app will be operating on it's own data
-- [ ] During onboarding, use pikachu to let the user know that we are working on uploading all of their rom data and scraping game info
-- [ ] Re-scan rom location folder? Allow different libraries per system? Give the user more control over how they store their files
-- [ ] Last played games, like the last 5?
-- [ ] Favourites? Completed Games?
-
-### scratchpad
-
-```
-curl 'https://api.igdb.com/v4/games' \
--d 'fields name,first_release_date,cover.url; search "Fire Emblem - The Binding Blade"; limit 1;' \
--H 'Client-ID: CLIENT ID' \
--H 'Authorization: Bearer TOKEN' \
--H 'Accept: application/json';
-
-
-query games "tr"{
-fields name, first_release_date;
-search "Fire Emblem";
-};
-query games "tr"{
-fields name, first_release_date;
-search "Advance Wars";
-};
-query games "tr"{
-fields name, first_release_date;
-where id = 10229;
-};
-236813
-
-query GetAutocompleteSuggestions($search: String!, $limit: Int) {
-  autocomplete(search: $search, limit: $limit) {
-    options {
-      id
-      value
-      modelType
-      cloudinary
-      url
-      __typename
-      }
-    __typename
-  }
-}
-```
-
-fields id, name, summary, total_rating, total_rating_count, platforms.name, cover.\*, first_release_date, genres.name, artworks.url;
-where name = "Advance Wars";
-limit 1;
+- Remember to export your save files before making any significant changes.
+- This application is intended for personal use with legally obtained ROMs.
+- Always respect copyright laws and game ownership rights.

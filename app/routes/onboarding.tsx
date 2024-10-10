@@ -37,15 +37,15 @@ let OnboardingSchema = z.object({
 });
 
 async function getIGDBAccessToken() {
-  const tokenUrl = "https://id.twitch.tv/oauth2/token";
-  const params = new URLSearchParams({
+  let tokenUrl = "https://id.twitch.tv/oauth2/token";
+  let params = new URLSearchParams({
     client_id: process.env.TWITCH_CLIENT_ID,
     client_secret: process.env.TWITCH_SECRET,
     grant_type: "client_credentials",
   });
 
   try {
-    const response = await fetch(`${tokenUrl}?${params.toString()}`, {
+    let response = await fetch(`${tokenUrl}?${params.toString()}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -56,7 +56,7 @@ async function getIGDBAccessToken() {
       throw new Error(`Failed to get access token: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    let data = await response.json();
     return data.access_token;
   } catch (error) {
     console.error("Error fetching Twitch access token:", error);
@@ -100,7 +100,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     );
   }
 
-  const isValidFolder = existsSync(romFolderLocation);
+  let isValidFolder = existsSync(romFolderLocation);
   if (!isValidFolder) {
     return json(
       submission.reply({
@@ -134,21 +134,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     console.log("processing transaction");
     await prisma.$transaction(
       async (txn) => {
-        for (const {
-          title,
-          location,
-          // summary,
-          // coverArt,
-          // backgroundImage,
-          system,
-        } of games) {
+        for (let { title, location, system } of games) {
           console.log(`---`, title);
           let romBuffer = await fs.readFile(location);
 
           let response = await fetchGameMetadata(
             process.env.TWITCH_CLIENT_ID,
             accessToken,
-            title
+            title,
+            system.title // processed earlier
           );
           let body = await response
             .json()
@@ -158,23 +152,23 @@ export async function action({ request, params }: ActionFunctionArgs) {
           console.log(game);
 
           let coverArt;
-          if (game.cover && "url" in game.cover) {
+          if (game?.cover && "url" in game.cover) {
             coverArt = game.cover.url.slice(2).replace("t_thumb", "t_720p");
           }
 
           let backgroundImage;
-          if (game.artworks) {
+          if (game?.artworks) {
             console.log("game artwork found", game.artworks);
-            backgroundImage = game.artworks[0].url // ! THIS DOES NOT WORK
+            backgroundImage = game.artworks[0].url
               .slice(2)
-              .replace("t_thumb", "t_720p");
+              .replace("t_thumb", "t_1080p");
           }
 
           await txn.game.create({
             data: {
               title,
               file: romBuffer,
-              releaseDate: new Date(),
+              releaseDate: game.first_release_date,
               summary: game.summary,
               coverArt,
               backgroundImage,
@@ -234,8 +228,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
 async function fetchGameMetadata(
   clientId: string,
   accessToken: string,
-  searchQuery: string
+  searchQuery: string,
+  platform: string
 ) {
+  let CATEGORY_MAIN_GAME = 0;
+  let CATEGORY_BUNDLE = 3;
+  let CATEGORY_REMAKE = 8;
+  let CATEGORY_EXPANDED_GAME = 10;
+  let CATEGORY_PORT = 11;
+
   return fetch("https://api.igdb.com/v4/games", {
     method: "POST",
     headers: {
@@ -243,8 +244,9 @@ async function fetchGameMetadata(
       "Client-ID": clientId,
       Authorization: `Bearer ${accessToken}`,
     },
-    body: `fields id, name, summary, total_rating, total_rating_count, platforms.name, cover.*, first_release_date, genres.name, artworks.url;
+    body: `fields id, name, summary, total_rating, total_rating_count, platforms.name, cover.*, first_release_date, genres.name, artworks.url, category;
 search "${searchQuery}";
+where platforms.abbreviation = "${platform}" & category = (${CATEGORY_MAIN_GAME},${CATEGORY_BUNDLE},${CATEGORY_REMAKE},${CATEGORY_EXPANDED_GAME},${CATEGORY_PORT});
 limit 1;`.trim(),
   });
 }

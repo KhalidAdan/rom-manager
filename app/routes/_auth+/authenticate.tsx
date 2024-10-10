@@ -1,4 +1,4 @@
-import { Login } from "@/components/pages/login";
+import { Login } from "@/components/organisms/login";
 import { authenticator } from "@/lib/auth/auth.server";
 import { getSession } from "@/lib/auth/session.server";
 import { LoaderFunctionArgs } from "@remix-run/node";

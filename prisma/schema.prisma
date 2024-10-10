@@ -19,10 +19,11 @@ model Settings {
 }
 
 model Role {
-  id    Int    @id @default(autoincrement())
-  title String @unique // CHECK CONSTRAINT FOR [ADMIN, MODERATOR, VIEWER]
+  id        Int         @id @default(autoincrement())
+  title     String      @unique // CHECK CONSTRAINT FOR [ADMIN, MODERATOR, VIEWER]
   // relations
-  users User[]
+  users     User[]
+  gameStats GameStats[]
 
   @@map("roles")
 }
@@ -38,20 +39,22 @@ model System {
 }
 
 model Game {
-  id              Int      @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   title           String
-  releaseDate     DateTime
+  releaseDate     Int // Epoch time
   coverArt        String?
   backgroundImage String?
   file            Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
   summary         String
+  completedAt     DateTime? // track when you beat or are done with a game
+  created_at      DateTime  @default(now())
+  updated_at      DateTime? @default(now())
 
-  created_at DateTime  @default(now())
-  updated_at DateTime? @default(now())
   // relations
-  systemId   Int       @map("system_id")
-  system     System    @relation(fields: [systemId], references: [id])
-  genres     Genre[]
+  systemId  Int         @map("system_id")
+  system    System      @relation(fields: [systemId], references: [id])
+  genres    Genre[]
+  GameStats GameStats[]
 
   @@map("games")
 }
@@ -67,15 +70,16 @@ model Genre {
 }
 
 model User {
-  id         Int       @id @default(autoincrement())
-  email      String    @unique
+  id         Int         @id @default(autoincrement())
+  email      String      @unique
   password   String // hashed before saving
-  created_at DateTime  @default(now())
-  updated_at DateTime? @default(now())
+  created_at DateTime    @default(now())
+  updated_at DateTime?   @default(now())
   // relations
   roleId     Int
-  role       Role      @relation(fields: [roleId], references: [id])
+  role       Role        @relation(fields: [roleId], references: [id])
   sessions   Session[]
+  gameStats  GameStats[]
 
   @@map("users")
 }
@@ -88,4 +92,20 @@ model Session {
   user    User     @relation(fields: [userId], references: [id]) //in Db add check constraint
 
   @@map("sessions")
+}
+
+model GameStats {
+  id            Int      @id @default(autoincrement())
+  lastPlayedAt  DateTime
+  totalPlayTime Int      @default(0) // in seconds, sent with unload event in /play
+  // relations
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  gameId        Int
+  game          Game     @relation(fields: [gameId], references: [id])
+  Role          Role?    @relation(fields: [roleId], references: [id])
+  roleId        Int?
+
+  @@unique([userId, gameId])
+  @@map("game_stats")
 }

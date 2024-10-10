@@ -1,9 +1,33 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { cn } from "@/lib/utils";
+import {
+  getFormProps,
+  getInputProps,
+  Submission,
+  useForm,
+} from "@conform-to/react";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { Label } from "@radix-ui/react-label";
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
+import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
+import { ArrowLeft } from "lucide-react";
+import { useId, useState } from "react";
+import { z } from "zod";
 
 type RomDetails = {
   name: string;
@@ -14,8 +38,44 @@ type RomDetails = {
   genres: string[];
 };
 
+enum Intent {
+  UpdateMetadata = "update-metadata",
+  UpdateLastPlayed = "update-last-played",
+}
+
+let ROM_MAX_SIZE = 1024 * 1024 * 24;
+
+let UpdateMetadata = z
+  .object({
+    id: z.number(),
+    intent: z.literal(Intent.UpdateMetadata),
+    title: z.string(),
+    releaseDate: z.date().optional(),
+    coverArt: z.string().optional(),
+    summary: z.string(),
+    backgroundImage: z.string().optional(),
+    file: z
+      .instanceof(File)
+      .refine(
+        (file) => file.size <= ROM_MAX_SIZE,
+        "File must be no larger than 24MB"
+      )
+      .optional(),
+  })
+  .strict();
+
+type UpdateMetadata = z.infer<typeof UpdateMetadata>;
+
+let UpdateLastPlayed = z.object({
+  intent: z.literal(Intent.UpdateLastPlayed),
+  gameId: z.number(),
+});
+
+type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireUser(request);
+
   let game = await prisma.game.findFirst({
     where: {
       title: params.title,
@@ -25,7 +85,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       title: true,
       releaseDate: true,
       backgroundImage: true,
-      file: true,
       summary: true,
       coverArt: true,
       system: {
@@ -41,12 +100,104 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
   });
+
   if (!game) throw new Error("Where the game at dog?");
   return game;
 }
 
+async function updateMetadata(submission: Submission<UpdateMetadata>) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { id, title, releaseDate, coverArt, backgroundImage, summary } =
+    submission.value;
+
+  await prisma.game.update({
+    where: { id },
+    data: {
+      title,
+      releaseDate: releaseDate
+        ? new Date(releaseDate).getTime() / 1000
+        : undefined,
+      coverArt,
+      backgroundImage,
+      summary,
+    },
+  });
+
+  return null;
+}
+
+async function updateLastPlayed(
+  submission: Submission<UpdateLastPlayed>,
+  userId: number
+) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { gameId } = submission.value;
+
+  await prisma.gameStats.upsert({
+    where: {
+      userId_gameId: {
+        userId,
+        gameId,
+      },
+    },
+    create: {
+      lastPlayedAt: new Date(),
+      gameId,
+      userId,
+    },
+    update: {
+      lastPlayedAt: new Date(),
+      gameId,
+      userId,
+    },
+  });
+
+  return null;
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  let user = await requireUser(request);
+  let formData = await request.formData();
+
+  let intent = formData.get("intent");
+
+  switch (intent) {
+    case Intent.UpdateLastPlayed: {
+      let submission = parseWithZod(formData, {
+        schema: UpdateLastPlayed,
+      });
+
+      console.log(submission);
+
+      return await updateLastPlayed(submission, user.id);
+    }
+    case Intent.UpdateMetadata: {
+      let submission = parseWithZod(formData, {
+        schema: UpdateMetadata,
+      });
+      console.log(submission);
+
+      return await updateMetadata(submission);
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
 export default function RomDetails() {
   let {
+    id,
     title,
     system,
     releaseDate,
@@ -55,8 +206,34 @@ export default function RomDetails() {
     summary,
     genres,
   } = useLoaderData<typeof loader>();
+  let [expensiveDate] = useState(() =>
+    // seconds to milliseconds, IGDB uses seconds
+    new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date(releaseDate * 1000))
+  );
+  let formId = useId();
+
+  let [form, fields] = useForm({
+    id: formId,
+    constraint: getZodConstraint(UpdateMetadata),
+    defaultValue: {
+      id,
+      intent: Intent.UpdateMetadata,
+      title,
+      releaseDate,
+      coverArt,
+      backgroundImage,
+      summary,
+    },
+  });
+
+  const fetcher = useFetcher({ key: "update-last-played-game" });
+
   return (
-    <div className="relative min-h-screen bg-gray-900 text-white overflow-hidden">
+    <div className="relative min-h-screen text-white overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 z-0 h-full w-full">
         <img
@@ -73,27 +250,109 @@ export default function RomDetails() {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16">
+        <div className="flex w-full justify-start mb-4">
+          <Link
+            to="/explore"
+            preventScrollReset
+            className={cn("flex", buttonVariants({ variant: "link" }))}
+            prefetch="render"
+          >
+            <span className="mr-2">
+              <ArrowLeft />
+            </span>
+            Go Back
+          </Link>
+        </div>
         <div className="flex flex-col md:flex-row gap-8">
           {/* Cover Art */}
           <div className="flex-shrink-0">
             <img
               src={
-                coverArt ? `http://${coverArt}` : "https://placehold.co/600x400"
+                coverArt ? `http://${coverArt}` : "https://placehold.co/540x720"
               }
               alt={title}
-              className="rounded-lg shadow-lg"
+              className="rounded-lg shadow-lg w-[540px] h-[720px]"
             />
           </div>
 
           {/* Details */}
           <div className="flex flex-col justify-center">
             <div className="flex items-start justify-between">
-              <h1 className="text-4xl font-bold mb-2">
+              <h1 className="text-4xl font-bold mb-2 font-sans-serif">
                 {title} <span className="uppercase">({system.title})</span>
               </h1>
-              <Button variant="secondary">Edit metadata</Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="secondary">Edit metadata</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit {title}'s metadata</DialogTitle>
+                    <DialogDescription>
+                      Make changes to metadata here. Click save when you're
+                      done.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {/* Form */}
+                  <Form
+                    {...getFormProps(form)}
+                    method="POST"
+                    className="grid gap-y-4"
+                  >
+                    <Input {...getInputProps(fields.id, { type: "hidden" })} />
+                    <Input
+                      {...getInputProps(fields.intent, { type: "hidden" })}
+                    />
+                    <div className="grid gap-2">
+                      <Label htmlFor={fields.title.id}>Title</Label>
+                      <Input
+                        {...getInputProps(fields.title, { type: "text" })}
+                      ></Input>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor={fields.releaseDate.id}>
+                        Release Date
+                      </Label>
+                      <DatePicker initialDate={releaseDate ?? undefined} />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
+                      <Input
+                        {...getInputProps(fields.coverArt, { type: "text" })}
+                      ></Input>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor={fields.backgroundImage.id}>
+                        Background Image
+                      </Label>
+                      <Input
+                        {...getInputProps(fields.backgroundImage, {
+                          type: "text",
+                        })}
+                      ></Input>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor={fields.summary.id}>Summary</Label>
+                      <Textarea
+                        rows={4}
+                        {...getInputProps(fields.summary, {
+                          type: "text",
+                        })}
+                      ></Textarea>
+                    </div>
+                  </Form>
+
+                  <DialogFooter className="w-full">
+                    <Button type="submit" form={formId}>
+                      Save
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
-            <p className="text-gray-400 mb-4">{releaseDate}</p>
+            <p className="text-muted-foreground mb-4 text-lg">
+              {expensiveDate}
+            </p>
             <div className="flex flex-wrap gap-2 mb-4">
               {genres.map((genre, i) => (
                 <Badge key={i}>{genre.name}</Badge>
@@ -101,9 +360,22 @@ export default function RomDetails() {
             </div>
             <p className="text-lg mb-6">{summary}</p>
             <div className="flex gap-4">
-              <Button>Play Now</Button>
+              <Link
+                preventScrollReset
+                to={`/play/${system.title}/${title}`}
+                className={buttonVariants({ variant: "default" })}
+                onClick={() => {
+                  fetcher.submit(
+                    { intent: Intent.UpdateLastPlayed, gameId: id },
+                    { method: "POST" }
+                  );
+                }}
+              >
+                Play Now
+              </Link>
               <Button variant="secondary">Add to Favorites</Button>
             </div>
+            <fetcher.Form method="POST"></fetcher.Form>
           </div>
         </div>
       </div>
