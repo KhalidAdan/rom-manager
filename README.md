@@ -1,53 +1,11 @@
 # ROMSTHO
 
-ROMSTHO is a modern platform for retro game enthusiasts, allowing you to reconnect with the past and share the magic of classic gaming adventures with family and friends.
-Features
-
-- Extensive Game Library: Access a wide range of classic games from systems like GBA, GBC, and SNES.
-- Rich Game Information: View detailed game metadata, including release dates, genres, and descriptions.
-- Emulation: Play your favorite retro games directly in your browser.
-- User-Friendly Interface: Navigate through a sleek, modern interface that celebrates gaming nostalgia.
-- Personalization: Add games to your favorites for quick access.
-- Family and Friends Sharing: Easily share your game library with others (works best with apps like Tailscale).
-
-## Supported Systems
-
-- Game Boy Advance (GBA)
-- Game Boy Color (GBC)
-- Super Nintendo Entertainment System (SNES)
-
-## Technical Details
-
-- Built with EmulatorJS for in-browser game emulation.
-- Uses IGDB API for fetching game metadata.
-- Backend powered by Prisma for efficient data management.
-
-## Setup and Installation
-
-Clone the repository:
-
-```
-git clone https://github.com/KhalidAdan/rom-manager.git
-```
-
-Install dependencies:
-
-```
-cd romstho
-npm install
-```
-
-Set up your environment variables (including IGDB API keys).
-Run the development server:
-
-```
-npm run dev
-```
+managing rom libraries
 
 ## Working with EmulatorJS
 
 EmulatorJS is located in the public/ folder for easy manipulation of the emulator at runtime in dev. You can add any cores you like for RetroArch and experiment with emscripten settings.
-Note: Any changes to EmulatorJS will need to be minified via public/emulatorjs/data/minify/index.js.
+Note: Any changes to EmulatorJS will need to be minified via public/emulatorjs/data/minify/index.js. To update emulator JS, you'll need to fetch a copy from the repo and extract it into public/.
 
 ## ROM Scanning
 
