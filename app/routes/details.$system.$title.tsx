@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
+import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import {
@@ -23,7 +24,13 @@ import {
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import { Label } from "@radix-ui/react-label";
-import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
+import {
+  ActionFunctionArgs,
+  unstable_createMemoryUploadHandler as createMemoryUploadHandler,
+  json,
+  LoaderFunctionArgs,
+  unstable_parseMultipartFormData as parseMultipartFormData,
+} from "@remix-run/node";
 import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { ArrowLeft } from "lucide-react";
 import { useId, useState } from "react";
@@ -38,12 +45,10 @@ type RomDetails = {
   genres: string[];
 };
 
-enum Intent {
+export enum Intent {
   UpdateMetadata = "update-metadata",
   UpdateLastPlayed = "update-last-played",
 }
-
-let ROM_MAX_SIZE = 1024 * 1024 * 24;
 
 let UpdateMetadata = z
   .object({
@@ -51,9 +56,21 @@ let UpdateMetadata = z
     intent: z.literal(Intent.UpdateMetadata),
     title: z.string(),
     releaseDate: z.date().optional(),
-    coverArt: z.string().optional(),
+    coverArt: z
+      .instanceof(File)
+      .refine(
+        (file) => file.size <= MAX_UPLOAD_SIZE,
+        "coverArt must be no larger than 5MB"
+      )
+      .optional(),
     summary: z.string(),
-    backgroundImage: z.string().optional(),
+    backgroundImage: z
+      .instanceof(File)
+      .refine(
+        (file) => file.size <= MAX_UPLOAD_SIZE,
+        "backgroundImage must be no larger than 5MB"
+      )
+      .optional(),
     file: z
       .instanceof(File)
       .refine(
@@ -102,7 +119,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 
   if (!game) throw new Error("Where the game at dog?");
-  return game;
+  return {
+    ...game,
+    coverArt: game.coverArt
+      ? Buffer.from(game.coverArt).toString("base64")
+      : null,
+    backgroundImage: game.backgroundImage
+      ? Buffer.from(game.backgroundImage).toString("base64")
+      : null,
+  };
 }
 
 async function updateMetadata(submission: Submission<UpdateMetadata>) {
@@ -122,8 +147,12 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
       releaseDate: releaseDate
         ? new Date(releaseDate).getTime() / 1000
         : undefined,
-      coverArt,
-      backgroundImage,
+      coverArt: coverArt
+        ? Buffer.from(await coverArt.arrayBuffer())
+        : undefined,
+      backgroundImage: backgroundImage
+        ? Buffer.from(await backgroundImage.arrayBuffer())
+        : undefined,
       summary,
     },
   });
@@ -167,7 +196,17 @@ async function updateLastPlayed(
 
 export async function action({ request }: ActionFunctionArgs) {
   let user = await requireUser(request);
-  let formData = await request.formData();
+  let contentType = request.headers.get("content-type");
+  let formData: FormData;
+
+  if (contentType && contentType.includes("multipart/form-data")) {
+    formData = await parseMultipartFormData(
+      request,
+      createMemoryUploadHandler({ maxPartSize: MAX_UPLOAD_SIZE })
+    );
+  } else {
+    formData = await request.formData();
+  }
 
   let intent = formData.get("intent");
 
@@ -177,15 +216,12 @@ export async function action({ request }: ActionFunctionArgs) {
         schema: UpdateLastPlayed,
       });
 
-      console.log(submission);
-
       return await updateLastPlayed(submission, user.id);
     }
     case Intent.UpdateMetadata: {
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
-      console.log(submission);
 
       return await updateMetadata(submission);
     }
@@ -239,7 +275,7 @@ export default function RomDetails() {
         <img
           src={
             backgroundImage
-              ? `http://${backgroundImage}`
+              ? `data:image/jpeg;base64,${backgroundImage}`
               : "https://placehold.co/1920x1080"
           }
           alt="Background"
@@ -268,7 +304,9 @@ export default function RomDetails() {
           <div className="flex-shrink-0">
             <img
               src={
-                coverArt ? `http://${coverArt}` : "https://placehold.co/540x720"
+                coverArt
+                  ? `data:image/jpeg;base64,${coverArt}`
+                  : "https://placehold.co/540x720"
               }
               alt={title}
               className="rounded-lg shadow-lg w-[540px] h-[720px]"
@@ -298,6 +336,7 @@ export default function RomDetails() {
                     {...getFormProps(form)}
                     method="POST"
                     className="grid gap-y-4"
+                    encType="multipart/form-data"
                   >
                     <Input {...getInputProps(fields.id, { type: "hidden" })} />
                     <Input
@@ -318,7 +357,9 @@ export default function RomDetails() {
                     <div className="grid gap-2">
                       <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
                       <Input
-                        {...getInputProps(fields.coverArt, { type: "text" })}
+                        type="file"
+                        name={fields.coverArt.name}
+                        id={fields.coverArt.id}
                       ></Input>
                     </div>
                     <div className="grid gap-2">
@@ -326,9 +367,9 @@ export default function RomDetails() {
                         Background Image
                       </Label>
                       <Input
-                        {...getInputProps(fields.backgroundImage, {
-                          type: "text",
-                        })}
+                        type="file"
+                        name={fields.backgroundImage.name}
+                        id={fields.backgroundImage.id}
                       ></Input>
                     </div>
                     <div className="grid gap-2">

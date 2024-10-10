@@ -71,8 +71,6 @@ export default function Play() {
   let data = useLoaderData<typeof loader>();
   let emulatorInitialized = useRef(false);
 
-  console.log(data);
-
   useEffect(() => {
     if (emulatorInitialized.current) return;
 

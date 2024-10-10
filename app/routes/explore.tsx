@@ -1,10 +1,23 @@
 // app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
 import RomManager, { RomManagerType } from "@/components/organisms/rom-manager";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
+import { cn } from "@/lib/utils";
+import { getRandomGame } from "@prisma/client/sql";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useFetcher, useLoaderData } from "@remix-run/react";
+import { Intent } from "./details.$system.$title";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
@@ -22,7 +35,53 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
 
-    return { games };
+    let [randomGame] = await prisma.$queryRawTyped(getRandomGame());
+
+    let lastPlayedGame = await prisma.gameStats.findFirst({
+      select: {
+        game: {
+          select: {
+            title: true,
+            summary: true,
+            backgroundImage: true,
+            system: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        lastPlayedAt: "desc",
+      },
+    });
+
+    return {
+      games: games.map((game) => {
+        return {
+          ...game,
+          coverArt: game.coverArt
+            ? Buffer.from(game.coverArt).toString("base64")
+            : "",
+        };
+      }),
+      lastPlayedGame: lastPlayedGame
+        ? {
+            randomGame: randomGame,
+            title: lastPlayedGame.game.title,
+            summary: lastPlayedGame.game.summary,
+            system: lastPlayedGame.game.system.title,
+            backgroundImage: lastPlayedGame.game.backgroundImage
+              ? Buffer.from(lastPlayedGame.game.backgroundImage).toString(
+                  "base64"
+                )
+              : undefined,
+          }
+        : undefined,
+
+      randomGame,
+    };
   } catch (error: unknown) {
     console.error("Error reading directory:", error);
     return {
@@ -34,17 +93,61 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function Explore() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred</div>;
+
+  let { games, lastPlayedGame, randomGame } = data;
+
+  const fetcher = useFetcher({ key: "update-last-played-game" });
+
   return (
     <main className="bg-background">
       <div className="flex justify-between pt-14 px-14">
-        <div className="flex flex-col">
+        <div className="w-full flex justify-between">
           <h1 className="text-4xl font-light mb-2 tracking-tight font-mono italic">
             ROMSTHO
           </h1>
+          {games.length > 0 && (
+            <Dialog>
+              <DialogTrigger>
+                <Button>Feeling Lucky?</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Can&apos;t figure out what to play?</DialogTitle>
+                </DialogHeader>
+                <div>
+                  <DialogDescription>
+                    You&apos;ve built up quite the library here, trust your
+                    taste and just play something! The button below will choose
+                    one at random!
+                  </DialogDescription>
+                </div>
+                <DialogFooter>
+                  <Link
+                    to={`/play/${randomGame.system_title}/${randomGame.title}`}
+                    className={cn(
+                      buttonVariants({ variant: "default", size: "lg" }),
+                      "border-2 border-foreground"
+                    )}
+                    onClick={() => {
+                      fetcher.submit(
+                        {
+                          intent: Intent.UpdateLastPlayed,
+                          gameId: randomGame.id,
+                        },
+                        { method: "POST" }
+                      );
+                    }}
+                  >
+                    Let us handle it
+                  </Link>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
-      <ContinuePlaying />
-      <RomManager games={data.games as RomManagerType["games"]} />
+      {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
+      <RomManager games={games as RomManagerType["games"]} />
     </main>
   );
 }

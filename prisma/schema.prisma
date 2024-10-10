@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["typedSql"]
 }
 
 datasource db {
@@ -42,8 +43,9 @@ model Game {
   id              Int       @id @default(autoincrement())
   title           String
   releaseDate     Int // Epoch time
-  coverArt        String?
-  backgroundImage String?
+  coverArt        Bytes?
+  backgroundImage Bytes?
+  fileName        String // the literal file's name
   file            Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
   summary         String
   completedAt     DateTime? // track when you beat or are done with a game

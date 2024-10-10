@@ -1,7 +1,18 @@
+import { Game, System } from "@prisma/client";
+import { Link } from "@remix-run/react";
 import { PlayCircle } from "lucide-react";
-import { Button } from "../ui/button";
+import { buttonVariants } from "../ui/button";
 
-export function ContinuePlaying() {
+type ContinuePlayingProps = {
+  lastPlayedGame: Pick<Game, "title" | "summary"> & {
+    backgroundImage?: string | undefined;
+    system: System["title"];
+  };
+};
+
+export function ContinuePlaying({
+  lastPlayedGame: { title, system, summary, backgroundImage },
+}: ContinuePlayingProps) {
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-background via-black/50 to-background" />
@@ -10,27 +21,31 @@ export function ContinuePlaying() {
           Pick up where you left off
         </h2>
         <h3 className="text-4xl font-bold mb-4 tracking-normal">
-          The Legend of Zelda: A Link to the Past (SNES)
+          {title} ({system})
         </h3>
-        <p className="text-lg mb-6">
-          Embark on an epic adventure to save Hyrule in this classic
-          action-adventure game. Traverse between the Light and Dark Worlds,
-          solve intricate puzzles, and defeat challenging bosses.
-        </p>
+        <p className="text-lg mb-6">{summary}</p>
         <div className="mt-4 flex gap-4">
-          <Button size="lg">
+          <Link
+            to={`/play/${system}/${title}`}
+            className={buttonVariants({ variant: "default", size: "lg" })}
+          >
             <PlayCircle className="mr-2 h-6 w-6" /> Play
-          </Button>
-          <Button size="lg" variant="outline">
-            I&apos;m feeling lucky
-          </Button>
+          </Link>
+          <Link
+            to={`/details/${system}/${title}`}
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
+            See details
+          </Link>
         </div>
       </div>
       <img
         src={
-          "https://www.nintendo.com/eu/media/images/10_share_images/games_15/super_nintendo_5/H2x1_SNES_TheLegendOfZeldaALinkToThePast.jpg"
+          backgroundImage
+            ? `data:image/jpeg;base64,${backgroundImage}`
+            : "https://placehold.co/1970x1080"
         }
-        className="object-cover"
+        className="object-cover w-full h-full"
       />
     </div>
   );

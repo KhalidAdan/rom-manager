@@ -3,6 +3,7 @@ import {
   SUPPORTED_SYSTEMS_WITH_EXTENSIONS,
 } from "@/lib/const";
 import { cn } from "@/lib/utils";
+import { Game } from "@prisma/client";
 import { Link } from "@remix-run/react";
 import {
   Carousel,
@@ -14,8 +15,8 @@ import {
 
 export type RomManagerType = {
   games: {
-    title: string;
-    coverArt: string | null; // placeholder until we set up folder scanning
+    title: Game["title"];
+    coverArt: string; // placeholder until we set up folder scanning
     system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
   }[];
 };
@@ -37,9 +38,9 @@ export default function RomManager({ games }: RomManagerType) {
               <CarouselContent className="-ml-2 md:-ml-4">
                 {games
                   .filter((rom) => rom.system.title === title)
-                  .map((rom) => (
+                  .map((rom, i) => (
                     <CarouselItem
-                      key={rom.title}
+                      key={i}
                       className="pl-2 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
                     >
                       <button
@@ -55,10 +56,7 @@ export default function RomManager({ games }: RomManagerType) {
                           prefetch="intent"
                         >
                           <img
-                            src={
-                              `http://${rom.coverArt}` ??
-                              "https://placehold.co/300x400"
-                            }
+                            src={`data:image/jpeg;base64,${rom.coverArt}`}
                             width={300}
                             height={400}
                             alt={rom.title}

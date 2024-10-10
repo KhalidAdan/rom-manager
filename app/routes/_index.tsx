@@ -70,7 +70,7 @@ export default function Home() {
           </h2>
           <Link
             preventScrollReset
-            to="/autheticate"
+            to="/authenticate"
             className={cn(
               buttonVariants({ variant: "outline" }),
               "tracking-tight font-mono italic"
