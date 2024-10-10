@@ -53,20 +53,31 @@ model Game {
   updated_at      DateTime? @default(now())
 
   // relations
-  systemId  Int         @map("system_id")
-  system    System      @relation(fields: [systemId], references: [id])
-  genres    Genre[]
-  GameStats GameStats[]
+  systemId   Int          @map("system_id")
+  system     System       @relation(fields: [systemId], references: [id])
+  genres     Genre[]
+  GameStats  GameStats[]
+  gameGenres GameGenres[]
 
   @@map("games")
 }
 
+model GameGenres {
+  id      Int   @id @default(autoincrement())
+  gameId  Int
+  genreId Int
+  game    Game  @relation(fields: [gameId], references: [id])
+  genre   Genre @relation(fields: [genreId], references: [id])
+
+  @@map("game_genre")
+}
+
 model Genre {
-  id     Int    @id @default(autoincrement())
-  name   String
+  id         Int          @id @default(autoincrement())
+  name       String       @unique
   // relations
-  gameId Int
-  games  Game   @relation(fields: [gameId], references: [id])
+  games      Game[]
+  gameGenres GameGenres[]
 
   @@map("genres")
 }

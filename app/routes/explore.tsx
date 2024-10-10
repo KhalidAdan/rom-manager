@@ -1,6 +1,10 @@
 // app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
 import RomManager, { RomManagerType } from "@/components/organisms/rom-manager";
+import {
+  TopGenresCarousel,
+  TopGenresCarouselType,
+} from "@/components/organisms/top-genres-carousels";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +41,47 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     let [randomGame] = await prisma.$queryRawTyped(getRandomGame());
 
+    let topFiveGameGenres = await prisma.genre.groupBy({
+      by: ["name"],
+      _count: {
+        name: true,
+      },
+      orderBy: {
+        _count: {
+          name: "desc",
+        },
+      },
+      take: 5,
+    });
+
+    let gamesByGenre = await prisma.genre.findMany({
+      select: {
+        name: true,
+        games: {
+          select: {
+            title: true,
+            coverArt: true,
+            system: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      where: {
+        name: {
+          in: topFiveGameGenres.map((genre) => genre.name),
+        },
+      },
+      take: 5,
+      orderBy: {
+        games: {
+          _count: "desc",
+        },
+      },
+    });
+
     let lastPlayedGame = await prisma.gameStats.findFirst({
       select: {
         game: {
@@ -57,6 +102,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
 
+    console.log(
+      gamesByGenre.map((genre) => ({
+        name: genre.name,
+        count: genre.games.length,
+      }))
+    );
     return {
       games: games.map((game) => {
         return {
@@ -66,6 +117,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
             : "",
         };
       }),
+      gamesByGenre: gamesByGenre.map((genre) => ({
+        ...genre,
+        games: genre.games.map((game) => {
+          return {
+            ...game,
+            coverArt: game.coverArt
+              ? Buffer.from(game.coverArt).toString("base64")
+              : "",
+          };
+        }),
+      })),
       lastPlayedGame: lastPlayedGame
         ? {
             randomGame: randomGame,
@@ -94,7 +156,7 @@ export default function Explore() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred</div>;
 
-  let { games, lastPlayedGame, randomGame } = data;
+  let { games, gamesByGenre, lastPlayedGame, randomGame } = data;
 
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
@@ -107,8 +169,10 @@ export default function Explore() {
           </h1>
           {games.length > 0 && (
             <Dialog>
-              <DialogTrigger>
-                <Button>Feeling Lucky?</Button>
+              <DialogTrigger asChild>
+                <Button variant="link" className="font-mono italic">
+                  Backlog paralysis?
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -148,6 +212,7 @@ export default function Explore() {
       </div>
       {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
       <RomManager games={games as RomManagerType["games"]} />
+      <TopGenresCarousel genres={gamesByGenre as TopGenresCarouselType} />
     </main>
   );
 }

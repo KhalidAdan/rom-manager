@@ -46,6 +46,70 @@ let OnboardingSchema = z.object({
   romFolderLocation: z.string(),
 });
 
+let Artwork = z.object({
+  id: z.number(),
+  url: z.string(),
+});
+
+let Cover = z.object({
+  id: z.number(),
+  alpha_channel: z.boolean(),
+  animated: z.boolean(),
+  game: z.number(),
+  height: z.number(),
+  image_id: z.string(),
+  url: z.string(),
+  width: z.number(),
+  checksum: z.string(),
+});
+
+let Genres = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+
+let Platforms = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+
+let Game = z.object({
+  id: z.number(),
+  artworks: z.array(Artwork).optional(),
+  category: z.number().optional(),
+  cover: Cover.optional(),
+  first_release_date: z.number().optional(),
+  genres: z.array(Genres).optional(),
+  name: z.string(),
+  platforms: z.array(Platforms).optional(),
+  summary: z.string().optional(),
+});
+
+type Game = z.infer<typeof Game>;
+
+let GameMetaData = Game.pick({
+  id: true,
+  genres: true,
+  summary: true,
+}).extend({
+  title: z.string(),
+  releaseDate: z.number().optional(),
+  coverArt: z
+    .instanceof(Buffer)
+    .refine((buffer) => {
+      return buffer.byteLength <= MAX_UPLOAD_SIZE;
+    }, "Cover Art size must be less than 5MB")
+    .optional(),
+  backgroundImage: z
+    .instanceof(Buffer)
+    .refine((buffer) => {
+      return buffer.byteLength <= MAX_UPLOAD_SIZE;
+    }, "Background Image size must be less than 5MB")
+    .optional(),
+});
+
+type GameMetaData = z.infer<typeof GameMetaData>;
+
 async function getIGDBAccessToken() {
   let tokenUrl = "https://id.twitch.tv/oauth2/token";
   let params = new URLSearchParams({
@@ -99,14 +163,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let { romFolderLocation, intent } = submission.value;
 
   if (intent !== Intent.SET_ROM_FOLDER_LOCATION) {
-    console.error("Received an unknown intent");
     return json(
-      submission.reply({
-        formErrors: ["Received an unknown intent"],
-      }),
-      {
-        status: 400,
-      }
+      submission.reply({ formErrors: ["Received an unknown intent"] }),
+      { status: 400 }
     );
   }
 
@@ -116,9 +175,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       submission.reply({
         formErrors: ["The folder you provided does not exist!"],
       }),
-      {
-        status: 400,
-      }
+      { status: 400 }
     );
   }
 
@@ -127,12 +184,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
     getFilesRecursively(romFolderLocation),
   ]);
 
-  console.log("accessToken", accessToken);
-
   let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
     (system) => system.extension
   );
-
   let games = processFilePathsIntoGameObjects(allFiles, extensions).map(
     (game) => ({
       ...game,
@@ -160,8 +214,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
               title: game.title,
               fileName: title,
               file: romBuffer,
-              releaseDate: game.first_release_date ?? 0,
-              summary: game.summary,
+              releaseDate: game.releaseDate ?? 0,
+              summary: game.summary ?? "",
               coverArt: game.coverArt,
               backgroundImage: game.backgroundImage,
               system: {
@@ -177,20 +231,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
               },
               genres: game.genres
                 ? {
-                    createMany: {
-                      data: [
-                        ...game.genres.map((genre) => {
-                          return {
-                            name: genre.name,
-                          };
-                        }),
-                      ],
-                    },
+                    connectOrCreate: game.genres.map((genre) => ({
+                      where: {
+                        name: genre.name,
+                      },
+                      create: {
+                        name: genre.name,
+                      },
+                    })),
                   }
                 : undefined,
             },
           });
-          await sleep(300); // IGDB rate limits us
+          await sleep(300); // IGDB rate limit
           console.log(`${title} completed processing and inserted`);
         }
       },
@@ -198,7 +251,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
         timeout: 80000,
       }
     );
-    console.log("transaction completed!");
 
     await prisma.settings.create({
       data: {
@@ -215,70 +267,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return json(submission.reply(), { status: 500 });
   }
 }
-
-let Artwork = z.object({
-  id: z.number(),
-  url: z.string(),
-});
-
-let Cover = z.object({
-  id: z.number(),
-  alpha_channel: z.boolean(),
-  animated: z.boolean(),
-  game: z.number(),
-  height: z.number(),
-  image_id: z.string(),
-  url: z.string(),
-  width: z.number(),
-  checksum: z.string(),
-});
-
-let Genres = z.object({
-  id: z.number(),
-  name: z.string(),
-});
-
-let Platforms = z.object({
-  id: z.number(),
-  name: z.string(),
-});
-
-let Game = z.object({
-  id: z.number(),
-  artworks: z.array(Artwork).optional(),
-  category: z.number().optional(),
-  cover: Cover.optional(),
-  first_release_date: z.number().optional(),
-  genres: z.array(Genres),
-  name: z.string(),
-  platforms: z.array(Platforms).optional(),
-  summary: z.string(),
-});
-
-type Game = z.infer<typeof Game>;
-
-let GameMetaData = Game.pick({
-  id: true,
-  first_release_date: true,
-  genres: true,
-  summary: true,
-}).extend({
-  title: z.string(),
-  coverArt: z
-    .instanceof(Buffer)
-    .refine((buffer) => {
-      return buffer.byteLength <= MAX_UPLOAD_SIZE;
-    }, "Cover Art size must be less than 5MB")
-    .optional(),
-  backgroundImage: z
-    .instanceof(Buffer)
-    .refine((buffer) => {
-      return buffer.byteLength <= MAX_UPLOAD_SIZE;
-    }, "Background Image size must be less than 5MB")
-    .optional(),
-});
-
-type GameMetaData = z.infer<typeof GameMetaData>;
 
 async function fetchGameMetadata(
   clientId: string,
@@ -335,6 +323,7 @@ limit 1;`.trim(),
     id: game.id,
     title: game.name,
     summary: game.summary,
+    releaseDate: game.first_release_date,
     genres: game.genres,
     coverArt: coverImage
       ? Buffer.from(await coverImage.arrayBuffer())

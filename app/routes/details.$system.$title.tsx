@@ -315,13 +315,13 @@ export default function RomDetails() {
 
           {/* Details */}
           <div className="flex flex-col justify-center">
-            <div className="flex items-start justify-between">
-              <h1 className="text-4xl font-bold mb-2 font-sans-serif">
+            <div className="flex items-center justify-between gap-x-4">
+              <h1 className="text-4xl font-bold mb-2 font-sans-serif self-start">
                 {title} <span className="uppercase">({system.title})</span>
               </h1>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="secondary">Edit metadata</Button>
+                  <Button variant="outline">Edit metadata</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -414,7 +414,7 @@ export default function RomDetails() {
               >
                 Play Now
               </Link>
-              <Button variant="secondary">Add to Favorites</Button>
+              <Button variant="outline">Add to Favorites</Button>
             </div>
             <fetcher.Form method="POST"></fetcher.Form>
           </div>

@@ -1,0 +1,606 @@
+diff --git a/app/components/molecules/continue-playing.tsx b/app/components/molecules/continue-playing.tsx
+index 5c126ae..23a7736 100644
+--- a/app/components/molecules/continue-playing.tsx
++++ b/app/components/molecules/continue-playing.tsx
+@@ -15,7 +15,7 @@ export function ContinuePlaying({
+ }: ContinuePlayingProps) {
+   return (
+     <div className="relative h-[70vh] w-full overflow-hidden">
+-      <div className="absolute inset-0 bg-gradient-to-b from-background via-black/50 to-background" />
++      <div className="absolute inset-0 bg-gradient-to-b from-background from-1% via-black/50 to-background to-95%" />
+       <div className="absolute top-20 ml-8 p-8 w-full md:w-2/3 lg:w-1/2">
+         <h2 className="text-2xl font-bold mb-2 tracking-normal">
+           Pick up where you left off
+diff --git a/app/components/organisms/rom-manager.tsx b/app/components/organisms/rom-manager.tsx
+index d1a620c..412acb1 100644
+--- a/app/components/organisms/rom-manager.tsx
++++ b/app/components/organisms/rom-manager.tsx
+@@ -1,80 +1,33 @@
+-import {
+-  prettifyROMTitles,
+-  SUPPORTED_SYSTEMS_WITH_EXTENSIONS,
+-} from "@/lib/const";
+-import { cn } from "@/lib/utils";
++import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+ import { Game } from "@prisma/client";
+-import { Link } from "@remix-run/react";
+-import {
+-  Carousel,
+-  CarouselContent,
+-  CarouselItem,
+-  CarouselNext,
+-  CarouselPrevious,
+-} from "../ui/carousel";
++import { GameCard } from "../molecules/game-card";
++import { GenericCarousel } from "../molecules/game-carousel";
+ 
+ export type RomManagerType = {
+   games: {
+     title: Game["title"];
+-    coverArt: string; // placeholder until we set up folder scanning
++    coverArt: string;
+     system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
+   }[];
+ };
+ 
+ export default function RomManager({ games }: RomManagerType) {
+   return (
+-    <div className="min-h-screen p-14 !bg-black/70">
++    <div className="min-h-screen p-14">
+       <div className="space-y-12">
+         {SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(({ title }) => (
+           <div key={title} className="space-y-4">
+             <h2 className="text-2xl font-semibold">{title}</h2>
+-            <Carousel
+-              opts={{
+-                align: "start",
+-                loop: true,
+-              }}
+-              className="w-full"
+-            >
+-              <CarouselContent className="-ml-2 md:-ml-4">
+-                {games
+-                  .filter((rom) => rom.system.title === title)
+-                  .map((rom, i) => (
+-                    <CarouselItem
+-                      key={i}
+-                      className="pl-2 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
+-                    >
+-                      <button
+-                        className={cn(
+-                          "aspect-[3/4] relative group cursor-pointer overflow-hidden rounded-lg"
+-                        )}
+-                        type="submit"
+-                      >
+-                        <Link
+-                          to={`/details/${title.toLocaleLowerCase()}/${prettifyROMTitles(
+-                            rom.title
+-                          )}`}
+-                          prefetch="intent"
+-                        >
+-                          <img
+-                            src={`data:image/jpeg;base64,${rom.coverArt}`}
+-                            width={300}
+-                            height={400}
+-                            alt={rom.title}
+-                            className="transition-transform duration-300 ease-in-out object-cover border group-hover:scale-110"
+-                          />
+-                          <div className="absolute inset-0 text-white bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-75 transition-opacity duration-300 p-4">
+-                            <p className="absolute bottom-10 left-2 right-2 text-2xl font-medium text-center">
+-                              {prettifyROMTitles(rom.title)}
+-                            </p>
+-                          </div>
+-                        </Link>
+-                      </button>
+-                    </CarouselItem>
+-                  ))}
+-              </CarouselContent>
+-              <CarouselPrevious />
+-              <CarouselNext />
+-            </Carousel>
++            <GenericCarousel
++              items={games.filter((rom) => rom.system.title === title)}
++              renderItem={(rom) => (
++                <GameCard
++                  title={rom.title}
++                  coverArt={rom.coverArt}
++                  systemTitle={title}
++                />
++              )}
++            />
+           </div>
+         ))}
+       </div>
+diff --git a/app/components/ui/button.tsx b/app/components/ui/button.tsx
+index 0270f64..511bf41 100644
+--- a/app/components/ui/button.tsx
++++ b/app/components/ui/button.tsx
+@@ -1,8 +1,8 @@
+-import * as React from "react"
+-import { Slot } from "@radix-ui/react-slot"
+-import { cva, type VariantProps } from "class-variance-authority"
++import { Slot } from "@radix-ui/react-slot";
++import { cva, type VariantProps } from "class-variance-authority";
++import * as React from "react";
+ 
+-import { cn } from "@/lib/utils"
++import { cn } from "@/lib/utils";
+ 
+ const buttonVariants = cva(
+   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+@@ -32,26 +32,26 @@ const buttonVariants = cva(
+       size: "default",
+     },
+   }
+-)
++);
+ 
+ export interface ButtonProps
+   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+     VariantProps<typeof buttonVariants> {
+-  asChild?: boolean
++  asChild?: boolean;
+ }
+ 
+ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+   ({ className, variant, size, asChild = false, ...props }, ref) => {
+-    const Comp = asChild ? Slot : "button"
++    const Comp = asChild ? Slot : "button";
+     return (
+       <Comp
+         className={cn(buttonVariants({ variant, size, className }))}
+         ref={ref}
+         {...props}
+       />
+-    )
++    );
+   }
+-)
+-Button.displayName = "Button"
++);
++Button.displayName = "Button";
+ 
+-export { Button, buttonVariants }
++export { Button, buttonVariants };
+diff --git a/app/routes/details.$system.$title.tsx b/app/routes/details.$system.$title.tsx
+index 2250a82..07287fc 100644
+--- a/app/routes/details.$system.$title.tsx
++++ b/app/routes/details.$system.$title.tsx
+@@ -315,13 +315,13 @@ export default function RomDetails() {
+ 
+           {/* Details */}
+           <div className="flex flex-col justify-center">
+-            <div className="flex items-start justify-between">
+-              <h1 className="text-4xl font-bold mb-2 font-sans-serif">
++            <div className="flex items-center justify-between gap-x-4">
++              <h1 className="text-4xl font-bold mb-2 font-sans-serif self-start">
+                 {title} <span className="uppercase">({system.title})</span>
+               </h1>
+               <Dialog>
+                 <DialogTrigger asChild>
+-                  <Button variant="secondary">Edit metadata</Button>
++                  <Button variant="outline">Edit metadata</Button>
+                 </DialogTrigger>
+                 <DialogContent>
+                   <DialogHeader>
+@@ -414,7 +414,7 @@ export default function RomDetails() {
+               >
+                 Play Now
+               </Link>
+-              <Button variant="secondary">Add to Favorites</Button>
++              <Button variant="outline">Add to Favorites</Button>
+             </div>
+             <fetcher.Form method="POST"></fetcher.Form>
+           </div>
+diff --git a/app/routes/explore.tsx b/app/routes/explore.tsx
+index 4711842..9d9f490 100644
+--- a/app/routes/explore.tsx
++++ b/app/routes/explore.tsx
+@@ -1,6 +1,10 @@
+ // app/routes/emulator.tsx
+ import { ContinuePlaying } from "@/components/molecules/continue-playing";
+ import RomManager, { RomManagerType } from "@/components/organisms/rom-manager";
++import {
++  TopGenresCarousel,
++  TopGenresCarouselType,
++} from "@/components/organisms/top-genres-carousels";
+ import { Button, buttonVariants } from "@/components/ui/button";
+ import {
+   Dialog,
+@@ -37,6 +41,47 @@ export async function loader({ request }: LoaderFunctionArgs) {
+ 
+     let [randomGame] = await prisma.$queryRawTyped(getRandomGame());
+ 
++    let topFiveGameGenres = await prisma.genre.groupBy({
++      by: ["name"],
++      _count: {
++        name: true,
++      },
++      orderBy: {
++        _count: {
++          name: "desc",
++        },
++      },
++      take: 5,
++    });
++
++    let gamesByGenre = await prisma.genre.findMany({
++      select: {
++        name: true,
++        games: {
++          select: {
++            title: true,
++            coverArt: true,
++            system: {
++              select: {
++                title: true,
++              },
++            },
++          },
++        },
++      },
++      where: {
++        name: {
++          in: topFiveGameGenres.map((genre) => genre.name),
++        },
++      },
++      take: 5,
++      orderBy: {
++        games: {
++          _count: "desc",
++        },
++      },
++    });
++
+     let lastPlayedGame = await prisma.gameStats.findFirst({
+       select: {
+         game: {
+@@ -57,6 +102,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
+       },
+     });
+ 
++    console.log(
++      gamesByGenre.map((genre) => ({
++        name: genre.name,
++        count: genre.games.length,
++      }))
++    );
+     return {
+       games: games.map((game) => {
+         return {
+@@ -66,6 +117,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
+             : "",
+         };
+       }),
++      gamesByGenre: gamesByGenre.map((genre) => ({
++        ...genre,
++        games: genre.games.map((game) => {
++          return {
++            ...game,
++            coverArt: game.coverArt
++              ? Buffer.from(game.coverArt).toString("base64")
++              : "",
++          };
++        }),
++      })),
+       lastPlayedGame: lastPlayedGame
+         ? {
+             randomGame: randomGame,
+@@ -94,7 +156,7 @@ export default function Explore() {
+   let data = useLoaderData<typeof loader>();
+   if ("error" in data) return <div>Error occurred</div>;
+ 
+-  let { games, lastPlayedGame, randomGame } = data;
++  let { games, gamesByGenre, lastPlayedGame, randomGame } = data;
+ 
+   const fetcher = useFetcher({ key: "update-last-played-game" });
+ 
+@@ -107,8 +169,10 @@ export default function Explore() {
+           </h1>
+           {games.length > 0 && (
+             <Dialog>
+-              <DialogTrigger>
+-                <Button>Feeling Lucky?</Button>
++              <DialogTrigger asChild>
++                <Button variant="link" className="font-mono italic">
++                  Backlog paralysis?
++                </Button>
+               </DialogTrigger>
+               <DialogContent>
+                 <DialogHeader>
+@@ -148,6 +212,7 @@ export default function Explore() {
+       </div>
+       {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
+       <RomManager games={games as RomManagerType["games"]} />
++      <TopGenresCarousel genres={gamesByGenre as TopGenresCarouselType} />
+     </main>
+   );
+ }
+diff --git a/app/routes/onboarding.tsx b/app/routes/onboarding.tsx
+index b966451..d8e121b 100644
+--- a/app/routes/onboarding.tsx
++++ b/app/routes/onboarding.tsx
+@@ -46,6 +46,70 @@ let OnboardingSchema = z.object({
+   romFolderLocation: z.string(),
+ });
+ 
++let Artwork = z.object({
++  id: z.number(),
++  url: z.string(),
++});
++
++let Cover = z.object({
++  id: z.number(),
++  alpha_channel: z.boolean(),
++  animated: z.boolean(),
++  game: z.number(),
++  height: z.number(),
++  image_id: z.string(),
++  url: z.string(),
++  width: z.number(),
++  checksum: z.string(),
++});
++
++let Genres = z.object({
++  id: z.number(),
++  name: z.string(),
++});
++
++let Platforms = z.object({
++  id: z.number(),
++  name: z.string(),
++});
++
++let Game = z.object({
++  id: z.number(),
++  artworks: z.array(Artwork).optional(),
++  category: z.number().optional(),
++  cover: Cover.optional(),
++  first_release_date: z.number().optional(),
++  genres: z.array(Genres).optional(),
++  name: z.string(),
++  platforms: z.array(Platforms).optional(),
++  summary: z.string().optional(),
++});
++
++type Game = z.infer<typeof Game>;
++
++let GameMetaData = Game.pick({
++  id: true,
++  genres: true,
++  summary: true,
++}).extend({
++  title: z.string(),
++  releaseDate: z.number().optional(),
++  coverArt: z
++    .instanceof(Buffer)
++    .refine((buffer) => {
++      return buffer.byteLength <= MAX_UPLOAD_SIZE;
++    }, "Cover Art size must be less than 5MB")
++    .optional(),
++  backgroundImage: z
++    .instanceof(Buffer)
++    .refine((buffer) => {
++      return buffer.byteLength <= MAX_UPLOAD_SIZE;
++    }, "Background Image size must be less than 5MB")
++    .optional(),
++});
++
++type GameMetaData = z.infer<typeof GameMetaData>;
++
+ async function getIGDBAccessToken() {
+   let tokenUrl = "https://id.twitch.tv/oauth2/token";
+   let params = new URLSearchParams({
+@@ -99,14 +163,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
+   let { romFolderLocation, intent } = submission.value;
+ 
+   if (intent !== Intent.SET_ROM_FOLDER_LOCATION) {
+-    console.error("Received an unknown intent");
+     return json(
+-      submission.reply({
+-        formErrors: ["Received an unknown intent"],
+-      }),
+-      {
+-        status: 400,
+-      }
++      submission.reply({ formErrors: ["Received an unknown intent"] }),
++      { status: 400 }
+     );
+   }
+ 
+@@ -116,9 +175,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
+       submission.reply({
+         formErrors: ["The folder you provided does not exist!"],
+       }),
+-      {
+-        status: 400,
+-      }
++      { status: 400 }
+     );
+   }
+ 
+@@ -127,12 +184,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
+     getFilesRecursively(romFolderLocation),
+   ]);
+ 
+-  console.log("accessToken", accessToken);
+-
+   let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+     (system) => system.extension
+   );
+-
+   let games = processFilePathsIntoGameObjects(allFiles, extensions).map(
+     (game) => ({
+       ...game,
+@@ -160,8 +214,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
+               title: game.title,
+               fileName: title,
+               file: romBuffer,
+-              releaseDate: game.first_release_date ?? 0,
+-              summary: game.summary,
++              releaseDate: game.releaseDate ?? 0,
++              summary: game.summary ?? "",
+               coverArt: game.coverArt,
+               backgroundImage: game.backgroundImage,
+               system: {
+@@ -177,20 +231,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
+               },
+               genres: game.genres
+                 ? {
+-                    createMany: {
+-                      data: [
+-                        ...game.genres.map((genre) => {
+-                          return {
+-                            name: genre.name,
+-                          };
+-                        }),
+-                      ],
+-                    },
++                    connectOrCreate: game.genres.map((genre) => ({
++                      where: {
++                        name: genre.name,
++                      },
++                      create: {
++                        name: genre.name,
++                      },
++                    })),
+                   }
+                 : undefined,
+             },
+           });
+-          await sleep(300); // IGDB rate limits us
++          await sleep(300); // IGDB rate limit
+           console.log(`${title} completed processing and inserted`);
+         }
+       },
+@@ -198,7 +251,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
+         timeout: 80000,
+       }
+     );
+-    console.log("transaction completed!");
+ 
+     await prisma.settings.create({
+       data: {
+@@ -216,70 +268,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
+   }
+ }
+ 
+-let Artwork = z.object({
+-  id: z.number(),
+-  url: z.string(),
+-});
+-
+-let Cover = z.object({
+-  id: z.number(),
+-  alpha_channel: z.boolean(),
+-  animated: z.boolean(),
+-  game: z.number(),
+-  height: z.number(),
+-  image_id: z.string(),
+-  url: z.string(),
+-  width: z.number(),
+-  checksum: z.string(),
+-});
+-
+-let Genres = z.object({
+-  id: z.number(),
+-  name: z.string(),
+-});
+-
+-let Platforms = z.object({
+-  id: z.number(),
+-  name: z.string(),
+-});
+-
+-let Game = z.object({
+-  id: z.number(),
+-  artworks: z.array(Artwork).optional(),
+-  category: z.number().optional(),
+-  cover: Cover.optional(),
+-  first_release_date: z.number().optional(),
+-  genres: z.array(Genres),
+-  name: z.string(),
+-  platforms: z.array(Platforms).optional(),
+-  summary: z.string(),
+-});
+-
+-type Game = z.infer<typeof Game>;
+-
+-let GameMetaData = Game.pick({
+-  id: true,
+-  first_release_date: true,
+-  genres: true,
+-  summary: true,
+-}).extend({
+-  title: z.string(),
+-  coverArt: z
+-    .instanceof(Buffer)
+-    .refine((buffer) => {
+-      return buffer.byteLength <= MAX_UPLOAD_SIZE;
+-    }, "Cover Art size must be less than 5MB")
+-    .optional(),
+-  backgroundImage: z
+-    .instanceof(Buffer)
+-    .refine((buffer) => {
+-      return buffer.byteLength <= MAX_UPLOAD_SIZE;
+-    }, "Background Image size must be less than 5MB")
+-    .optional(),
+-});
+-
+-type GameMetaData = z.infer<typeof GameMetaData>;
+-
+ async function fetchGameMetadata(
+   clientId: string,
+   accessToken: string,
+@@ -335,6 +323,7 @@ limit 1;`.trim(),
+     id: game.id,
+     title: game.name,
+     summary: game.summary,
++    releaseDate: game.first_release_date,
+     genres: game.genres,
+     coverArt: coverImage
+       ? Buffer.from(await coverImage.arrayBuffer())
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 2b7baa4..3925d29 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -53,20 +53,31 @@ model Game {
+   updated_at      DateTime? @default(now())
+ 
+   // relations
+-  systemId  Int         @map("system_id")
+-  system    System      @relation(fields: [systemId], references: [id])
+-  genres    Genre[]
+-  GameStats GameStats[]
++  systemId   Int          @map("system_id")
++  system     System       @relation(fields: [systemId], references: [id])
++  genres     Genre[]
++  GameStats  GameStats[]
++  gameGenres GameGenres[]
+ 
+   @@map("games")
+ }
+ 
++model GameGenres {
++  id      Int   @id @default(autoincrement())
++  gameId  Int
++  genreId Int
++  game    Game  @relation(fields: [gameId], references: [id])
++  genre   Genre @relation(fields: [genreId], references: [id])
++
++  @@map("game_genre")
++}
++
+ model Genre {
+-  id     Int    @id @default(autoincrement())
+-  name   String
++  id         Int          @id @default(autoincrement())
++  name       String       @unique
+   // relations
+-  gameId Int
+-  games  Game   @relation(fields: [gameId], references: [id])
++  games      Game[]
++  gameGenres GameGenres[]
+ 
+   @@map("genres")
+ }

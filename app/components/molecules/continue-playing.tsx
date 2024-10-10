@@ -15,7 +15,7 @@ export function ContinuePlaying({
 }: ContinuePlayingProps) {
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-black/50 to-background" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background from-1% via-black/50 to-background to-95%" />
       <div className="absolute top-20 ml-8 p-8 w-full md:w-2/3 lg:w-1/2">
         <h2 className="text-2xl font-bold mb-2 tracking-normal">
           Pick up where you left off
