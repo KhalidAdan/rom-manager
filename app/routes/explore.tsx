@@ -23,6 +23,28 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Intent } from "./details.$system.$title";
 
+async function getLastPlayedGame() {
+  return await prisma.gameStats.findFirst({
+    select: {
+      game: {
+        select: {
+          title: true,
+          summary: true,
+          backgroundImage: true,
+          system: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      lastPlayedAt: "desc",
+    },
+  });
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
 
@@ -82,25 +104,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
 
-    let lastPlayedGame = await prisma.gameStats.findFirst({
-      select: {
+    let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
+      await getLastPlayedGame();
+
+    if (lastPlayedGame == null) {
+      lastPlayedGame = {
         game: {
-          select: {
-            title: true,
-            summary: true,
-            backgroundImage: true,
-            system: {
-              select: {
-                title: true,
-              },
-            },
+          title: randomGame.title,
+          summary: randomGame.summary,
+          backgroundImage: randomGame.backgroundImage,
+          system: {
+            title: randomGame.system_title,
           },
         },
-      },
-      orderBy: {
-        lastPlayedAt: "desc",
-      },
-    });
+      };
+    }
 
     return {
       games: games.map((game) => {
@@ -161,47 +179,60 @@ export default function Explore() {
           <h1 className="text-4xl font-light mb-4 tracking-tight font-mono italic">
             ROMSTHO
           </h1>
-          {games.length > 0 && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="link" className="font-mono italic">
-                  Backlog paralysis?
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Can&apos;t figure out what to play?</DialogTitle>
-                </DialogHeader>
-                <div>
-                  <DialogDescription>
-                    You&apos;ve built up quite the library here, trust your
-                    taste and just play something! The button below will choose
-                    one at random!
-                  </DialogDescription>
-                </div>
-                <DialogFooter>
-                  <Link
-                    to={`/play/${randomGame.system_title}/${randomGame.title}`}
-                    className={cn(
-                      buttonVariants({ variant: "default", size: "lg" }),
-                      "border-2 border-foreground"
-                    )}
-                    onClick={() => {
-                      fetcher.submit(
-                        {
-                          intent: Intent.UpdateLastPlayed,
-                          gameId: randomGame.id,
-                        },
-                        { method: "POST" }
-                      );
-                    }}
-                  >
-                    Let us handle it
-                  </Link>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+          <div className="flex gap-4">
+            {games.length > 0 && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="link" className="font-mono italic">
+                    Backlog paralysis?
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      Can&apos;t figure out what to play?
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div>
+                    <DialogDescription>
+                      You&apos;ve built up quite the library here, trust your
+                      taste and just play something! The button below will
+                      choose one at random!
+                    </DialogDescription>
+                  </div>
+                  <DialogFooter>
+                    <Link
+                      to={`/play/${randomGame.system_title}/${randomGame.title}`}
+                      className={cn(
+                        buttonVariants({ variant: "default", size: "lg" }),
+                        "border-2 border-foreground"
+                      )}
+                      onClick={() => {
+                        fetcher.submit(
+                          {
+                            intent: Intent.UpdateLastPlayed,
+                            gameId: randomGame.id,
+                          },
+                          { method: "POST" }
+                        );
+                      }}
+                    >
+                      Let us handle it
+                    </Link>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+            <Link
+              to="/search"
+              className={cn(
+                buttonVariants({ variant: "link" }),
+                "font-mono italic"
+              )}
+            >
+              Search
+            </Link>
+          </div>
         </div>
       </div>
       {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}

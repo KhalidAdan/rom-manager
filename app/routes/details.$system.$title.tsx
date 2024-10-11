@@ -15,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
-import { cn } from "@/lib/utils";
 import { Intent as PlayIntent } from "@/routes/play.$system.$title";
 import {
   getFormProps,
@@ -32,7 +31,13 @@ import {
   LoaderFunctionArgs,
   unstable_parseMultipartFormData as parseMultipartFormData,
 } from "@remix-run/node";
-import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  Link,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+} from "@remix-run/react";
 import { ArrowLeft, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { z } from "zod";
@@ -273,6 +278,7 @@ export default function RomDetails() {
       day: "numeric",
     }).format(new Date(releaseDate * 1000))
   );
+  let navigate = useNavigate();
   let formId = useId();
 
   let [form, fields] = useForm({
@@ -310,17 +316,12 @@ export default function RomDetails() {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16">
         <div className="flex w-full justify-start mb-4">
-          <Link
-            to="/explore"
-            preventScrollReset
-            className={cn("flex", buttonVariants({ variant: "link" }))}
-            prefetch="render"
-          >
+          <Button variant="link" className="flex" onClick={() => navigate(-1)}>
             <span className="mr-2">
               <ArrowLeft />
             </span>
             Go Back
-          </Link>
+          </Button>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
           {/* Cover Art */}
