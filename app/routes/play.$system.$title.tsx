@@ -83,6 +83,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 let RemoveBorrowLock = z.object({
   intent: z.literal(Intent.RemoveBorrowLock),
   gameId: z.number(),
+  borrowerId: z.number().optional(),
 });
 
 type RemoveBorrowLock = z.infer<typeof RemoveBorrowLock>;
@@ -97,12 +98,12 @@ async function removeBorrowLock(
     });
   }
 
-  let { gameId } = submission.value;
+  let { gameId, borrowerId } = submission.value;
 
   await prisma.game.update({
     where: {
       id: gameId,
-      userId,
+      userId: borrowerId ?? userId,
     },
     data: {
       userId: null,
@@ -117,8 +118,6 @@ export async function action({ request }: ActionFunctionArgs) {
   let submission = parseWithZod(formData, {
     schema: RemoveBorrowLock,
   });
-
-  console.log("unloading emulatgor and unlocking game");
 
   await removeBorrowLock(submission, user.id);
   return null;

@@ -16,6 +16,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
+import { Intent as PlayIntent } from "@/routes/play.$system.$title";
 import {
   getFormProps,
   getInputProps,
@@ -32,7 +33,7 @@ import {
   unstable_parseMultipartFormData as parseMultipartFormData,
 } from "@remix-run/node";
 import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { useId, useState } from "react";
 import { z } from "zod";
 
@@ -91,7 +92,7 @@ let UpdateLastPlayed = z.object({
 type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireUser(request);
+  let user = await requireUser(request);
 
   let game = await prisma.game.findFirst({
     where: {
@@ -104,6 +105,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       backgroundImage: true,
       summary: true,
       coverArt: true,
+      borrowedBy: {
+        select: {
+          id: true,
+          roleId: true,
+        },
+      },
       system: {
         select: {
           id: true,
@@ -127,6 +134,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     backgroundImage: game.backgroundImage
       ? Buffer.from(game.backgroundImage).toString("base64")
       : null,
+    user,
   };
 }
 
@@ -254,6 +262,8 @@ export default function RomDetails() {
     backgroundImage,
     summary,
     genres,
+    borrowedBy,
+    user,
   } = useLoaderData<typeof loader>();
   let [expensiveDate] = useState(() =>
     // seconds to milliseconds, IGDB uses seconds
@@ -328,8 +338,46 @@ export default function RomDetails() {
 
           {/* Details */}
           <div className="flex flex-col justify-center">
+            {borrowedBy && (
+              <div className="mb-4">
+                <div className="space-y-2 mb-2 py-4">
+                  <span className="flex items-center gap-2">
+                    <Lock size="20" aria-hidden="true" /> Someone&apos; playing
+                    this
+                  </span>
+                  <p>
+                    A user has borrowed this title already, it is not available
+                    to be borrowed. Revoking their lock will remove them from
+                    their play session.
+                  </p>
+                  {user.roleId < borrowedBy.roleId && (
+                    <Form
+                      method="POST"
+                      action={`/play/${system.title}/${title}`}
+                      navigate={false}
+                      className="pt-2"
+                    >
+                      <Input type="hidden" name="gameId" defaultValue={id} />
+                      <Input
+                        type="hidden"
+                        name="borrowerId"
+                        defaultValue={borrowedBy.id}
+                      />
+                      <Button
+                        variant="destructive"
+                        type="submit"
+                        name="intent"
+                        value={PlayIntent.RemoveBorrowLock}
+                      >
+                        Revoke lock
+                      </Button>
+                    </Form>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-x-4">
-              <h1 className="text-4xl font-bold mb-2 font-sans-serif self-start">
+              <h1 className="flex items-center gap-4 text-4xl font-bold mb-2 font-sans-serif self-start">
                 {title} <span className="uppercase">({system.title})</span>
               </h1>
               <Dialog>
@@ -414,19 +462,23 @@ export default function RomDetails() {
             </div>
             <p className="text-lg mb-6">{summary}</p>
             <div className="flex gap-4">
-              <Link
-                preventScrollReset
-                to={`/play/${system.title}/${title}`}
-                className={buttonVariants({ variant: "default" })}
-                onClick={() => {
-                  fetcher.submit(
-                    { intent: Intent.UpdateLastPlayed, gameId: id },
-                    { method: "POST" }
-                  );
-                }}
-              >
-                Play Now
-              </Link>
+              {!borrowedBy ? (
+                <Link
+                  preventScrollReset
+                  to={`/play/${system.title}/${title}`}
+                  className={buttonVariants({ variant: "default" })}
+                  onClick={() => {
+                    fetcher.submit(
+                      { intent: Intent.UpdateLastPlayed, gameId: id },
+                      { method: "POST" }
+                    );
+                  }}
+                >
+                  Play Now
+                </Link>
+              ) : (
+                <Button disabled>Not available</Button>
+              )}
               <Button variant="outline">Add to Favorites</Button>
             </div>
             <fetcher.Form method="POST"></fetcher.Form>
