@@ -191,6 +191,19 @@ async function updateLastPlayed(
     },
   });
 
+  await prisma.game.update({
+    where: {
+      id: gameId,
+    },
+    data: {
+      borrowedBy: {
+        connect: {
+          id: userId,
+        },
+      },
+    },
+  });
+
   return null;
 }
 
@@ -266,7 +279,7 @@ export default function RomDetails() {
     },
   });
 
-  const fetcher = useFetcher({ key: "update-last-played-game" });
+  let fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">

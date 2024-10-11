@@ -156,9 +156,9 @@ export default function Explore() {
 
   return (
     <main className="bg-background">
-      <div className="flex justify-between pt-14 px-14">
+      <div className="flex justify-between pt-10 px-14">
         <div className="w-full flex justify-between">
-          <h1 className="text-4xl font-light mb-2 tracking-tight font-mono italic">
+          <h1 className="text-4xl font-light mb-4 tracking-tight font-mono italic">
             ROMSTHO
           </h1>
           {games.length > 0 && (

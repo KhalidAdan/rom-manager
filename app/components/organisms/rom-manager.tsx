@@ -13,7 +13,7 @@ export type RomManagerType = {
 
 export default function RomManager({ games }: RomManagerType) {
   return (
-    <div className="min-h-screen p-14">
+    <div className="min-h-screen px-14">
       <div className="space-y-12">
         {SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(({ title }) => (
           <div key={title} className="space-y-4">

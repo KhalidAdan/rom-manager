@@ -1,9 +1,17 @@
 import { requireUser } from "@/lib/auth/auth.server";
 import { DATA_DIR } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { useEffect, useRef } from "react";
+import { Submission } from "@conform-to/react";
+import { parseWithZod } from "@conform-to/zod";
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
+import {
+  useBeforeUnload,
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+} from "@remix-run/react";
+import { useCallback, useEffect, useRef } from "react";
+import { z } from "zod";
 
 // declare EmulatorJS global variables
 declare global {
@@ -18,6 +26,10 @@ declare global {
     EJS_gameUrl: string;
     EJS_emulator: any;
   }
+}
+
+export enum Intent {
+  RemoveBorrowLock = "remove-borrow-lock",
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -64,12 +76,66 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     selectedSystem: game.system.title,
     title: game.title,
     emulatorConfig,
+    clientIntent: Intent.RemoveBorrowLock,
   };
+}
+
+let RemoveBorrowLock = z.object({
+  intent: z.literal(Intent.RemoveBorrowLock),
+  gameId: z.number(),
+});
+
+type RemoveBorrowLock = z.infer<typeof RemoveBorrowLock>;
+
+async function removeBorrowLock(
+  submission: Submission<RemoveBorrowLock>,
+  userId: number
+) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { gameId } = submission.value;
+
+  await prisma.game.update({
+    where: {
+      id: gameId,
+      userId,
+    },
+    data: {
+      userId: null,
+    },
+  });
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  let user = await requireUser(request);
+  let formData = await request.formData();
+
+  let submission = parseWithZod(formData, {
+    schema: RemoveBorrowLock,
+  });
+
+  console.log("unloading emulatgor and unlocking game");
+
+  await removeBorrowLock(submission, user.id);
+  return null;
 }
 
 export default function Play() {
   let data = useLoaderData<typeof loader>();
   let emulatorInitialized = useRef(false);
+  let navigate = useNavigate();
+  let fetcher = useFetcher({ key: data.clientIntent });
+
+  let cleanupEmulator = useCallback(() => {
+    if (window.EJS_emulator) {
+      console.log("Cleaning up emulator");
+      window.EJS_emulator.callEvent("exit");
+    }
+  }, []);
 
   useEffect(() => {
     if (emulatorInitialized.current) return;
@@ -92,9 +158,20 @@ export default function Play() {
 
         emulatorInitialized.current = true;
 
+        const handlePopState = (_event: PopStateEvent) => {
+          cleanupEmulator();
+          fetcher.submit(
+            { intent: data.clientIntent, gameId: data.id },
+            { method: "POST" }
+          );
+        };
+        window.addEventListener("popstate", handlePopState);
+
         return () => {
+          cleanupEmulator();
           URL.revokeObjectURL(romURL);
           document.body.removeChild(script);
+          window.removeEventListener("popstate", handlePopState);
         };
       } catch (error) {
         console.error("Error initializing emulator:", error);
@@ -104,23 +181,35 @@ export default function Play() {
     initializeEmulator();
   });
 
-  useEffect(() => {
-    const handleUnload = (event: BeforeUnloadEvent) => {
-      console.log("handling back button press");
-      event?.preventDefault();
-      window.EJS_emulator.callEvent("exit");
-    };
-
-    window.addEventListener("unload", handleUnload);
-
-    // Cleanup: remove the event listener when the component unmounts
-    return () => {
-      window.removeEventListener("unload", handleUnload);
-    };
+  useBeforeUnload((event: BeforeUnloadEvent) => {
+    console.log("Handling page unload");
+    cleanupEmulator();
+    event.preventDefault();
+    return (event.returnValue =
+      "Are you sure you want to exit? Your progress may be lost.");
   });
+
+  useEffect(() => {
+    const handleBeforeNavigate = (event: MouseEvent) => {
+      const target = event.target as HTMLAnchorElement;
+      if (target.tagName === "A" && target.href) {
+        event.preventDefault();
+        cleanupEmulator();
+        navigate(target.href);
+      }
+    };
+
+    document.body.addEventListener("click", handleBeforeNavigate);
+
+    return () => {
+      document.body.removeEventListener("click", handleBeforeNavigate);
+    };
+  }, [navigate, cleanupEmulator]);
+
   return (
     <main>
       <div id="game" className="h-full w-full bg-background"></div>
+      <fetcher.Form method="POST"></fetcher.Form>
     </main>
   );
 }
