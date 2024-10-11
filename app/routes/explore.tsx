@@ -102,12 +102,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
 
-    console.log(
-      gamesByGenre.map((genre) => ({
-        name: genre.name,
-        count: genre.games.length,
-      }))
-    );
     return {
       games: games.map((game) => {
         return {

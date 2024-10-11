@@ -10,6 +10,9 @@ type ContinuePlayingProps = {
   };
 };
 
+let truncateText = (str: string, maxLength = 300) =>
+  str.length > maxLength ? str.slice(0, maxLength) + `...` : str;
+
 export function ContinuePlaying({
   lastPlayedGame: { title, system, summary, backgroundImage },
 }: ContinuePlayingProps) {
@@ -23,7 +26,7 @@ export function ContinuePlaying({
         <h3 className="text-4xl font-bold mb-4 tracking-normal">
           {title} ({system})
         </h3>
-        <p className="text-lg mb-6">{summary}</p>
+        <p className="text-lg mb-6">{truncateText(summary)}</p>
         <div className="mt-4 flex gap-4">
           <Link
             to={`/play/${system}/${title}`}

@@ -1,6 +1,5 @@
 import { Login } from "@/components/organisms/login";
 import { authenticator } from "@/lib/auth/auth.server";
-import { getSession } from "@/lib/auth/session.server";
 import { prisma } from "@/lib/prisma.server";
 import { LoaderFunctionArgs } from "@remix-run/node";
 
@@ -14,10 +13,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     successRedirect:
       settings && settings.onboardingComplete ? "/explore" : "/onboarding",
   });
-
-  let session = await getSession(request.headers.get("cookie"));
-  session.set("strategy", "form");
-
   return null;
 }
 

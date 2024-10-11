@@ -4,7 +4,7 @@ import { FormStrategy } from "remix-auth-form";
 import { z } from "zod";
 import { prisma } from "../prisma.server";
 
-export let userRoles = {
+export let UserRoles = {
   ADMIN: 1,
   MODERATOR: 2,
   VIEWER: 3,
@@ -29,12 +29,14 @@ let formStrategy = new FormStrategy(async ({ form, context }) => {
     },
   });
 
+  let settings = await prisma.settings.findFirst();
+
   if (!user) {
     user = await prisma.user.create({
       data: {
         email: email,
         password: hashedPassword,
-        roleId: 2, // TODO: get the value from context or form submission via intents, maybe even invites from request.url
+        roleId: settings === null ? UserRoles.ADMIN : UserRoles.VIEWER, // TODO: get the value from context or form submission via intents, maybe even invites from request.url
       },
     });
   }
