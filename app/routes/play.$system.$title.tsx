@@ -25,6 +25,7 @@ declare global {
     EJS_pathtodata: string;
     EJS_gameUrl: string;
     EJS_emulator: any;
+    EJS_GameManager: any;
   }
 }
 
@@ -204,6 +205,25 @@ export default function Play() {
       document.body.removeEventListener("click", handleBeforeNavigate);
     };
   }, [navigate, cleanupEmulator]);
+
+  useEffect(() => {
+    if (!emulatorInitialized.current) return;
+
+    const initializeGameManager = () => {
+      if (window.EJS_emulator) {
+        try {
+          console.log("Attempting save file loading");
+          window.EJS_emulator.gameManager.loadSaveFiles();
+        } catch (error) {
+          console.error("An error occurred getting save files", error);
+        }
+      } else {
+        console.error("EJS_GameManager is not available");
+      }
+    };
+
+    initializeGameManager();
+  }, [emulatorInitialized]);
 
   return (
     <main>

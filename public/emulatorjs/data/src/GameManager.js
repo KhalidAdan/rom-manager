@@ -502,6 +502,7 @@ class EJS_GameManager {
     return exists ? this.FS.readFile(this.getSaveFilePath()) : null;
   }
   loadSaveFiles() {
+    console.log("loading save files");
     this.clearEJSResetTimer();
     this.functions.loadSaveFiles();
   }
