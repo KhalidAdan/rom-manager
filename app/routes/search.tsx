@@ -1,4 +1,7 @@
-import { GameCard, GameCardSkeleton } from "@/components/molecules/game-card";
+import {
+  GameCard,
+  GameCardSkeleton,
+} from "@/components/molecules/generic-game-card";
 import { SuggestionCard } from "@/components/molecules/suggestion-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,21 +109,23 @@ export default function Search() {
     }
   }, [search.data, hasSearched.current]);
   return (
-    <div className="min-h-screen relative">
-      <div className="absolute inset-0 z-0">
+    <div className="min-h-screen relative bg-black">
+      <div className="fixed inset-0 z-0">
         <img
           src="/boy-playing-retro-games.webp"
           alt="Background"
-          className="w-full h-full object-cover"
+          className="w-screen h-screen object-cover"
         />
         <div className="absolute inset-0 bg-black opacity-75"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black max-h-screen" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent max-h-screen" />
       </div>
 
       <div className="relative z-10 p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <header className="flex justify-between mb-14">
             <h2 className="text-4xl font-light tracking-tight font-mono italic">
-              ROMSTHO
+              {"{"} ROMSTHO {"}"}
             </h2>
             <Link
               to="/explore"
@@ -142,11 +147,6 @@ export default function Search() {
               onChange={(e) => {
                 hasSearched.current = true;
                 search.submit(e.currentTarget.form);
-                let params = new URLSearchParams();
-                params.set("q", e.target.value);
-                setSearchParams(params, {
-                  preventScrollReset: true,
-                });
               }}
               className="w-full bg-accent"
             />
@@ -185,7 +185,7 @@ export default function Search() {
                 {results ? "Results" : ""}
               </h2>
 
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-1">
                 {results && results.length > 0 ? (
                   results.map((rom) => (
                     <div
@@ -219,8 +219,6 @@ export default function Search() {
           </div>
         </div>
       </div>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/10 to-transparent" />
     </div>
   );
 }

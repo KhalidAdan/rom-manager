@@ -11,7 +11,7 @@ export function SuggestionCard({
 }) {
   return (
     <Link to={`/tag/${name}`}>
-      <Card className="overflow-hidden border-none group rounded-none">
+      <Card className="overflow-hidden border-none hover:border-solid rounded-none group">
         <CardContent className="p-0">
           <div className="relative aspect-[2/1]">
             <img

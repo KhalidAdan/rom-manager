@@ -1,5 +1,5 @@
-import { GameCard } from "../molecules/game-card";
-import { GenericCarousel } from "../molecules/game-carousel";
+import { GenericCarousel } from "../molecules/generic-carousel";
+import { GameCard } from "../molecules/generic-game-card";
 
 interface Game {
   title: string;
@@ -16,12 +16,6 @@ interface Genre {
 
 export type TopGenresCarouselType = Genre[];
 
-let shuffle = <T,>(arr: T[]): T[] =>
-  arr
-    .map((value) => ({ value, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .map(({ value }) => value);
-
 export function TopGenresCarousel({
   genres,
 }: {
@@ -33,7 +27,7 @@ export function TopGenresCarousel({
         <div key={genre.name} className="space-y-4">
           <h2 className="text-2xl font-semibold">{genre.name}</h2>
           <GenericCarousel<Game>
-            items={shuffle(genre.gameGenres)}
+            items={genre.gameGenres}
             renderItem={(game) => (
               <GameCard
                 title={game.title}

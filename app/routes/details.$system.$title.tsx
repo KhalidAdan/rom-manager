@@ -135,16 +135,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 
   if (!game) throw new Error("Where the game at dog?");
-  return {
-    ...game,
-    coverArt: game.coverArt
-      ? Buffer.from(game.coverArt).toString("base64")
-      : null,
-    backgroundImage: game.backgroundImage
-      ? Buffer.from(game.backgroundImage).toString("base64")
-      : null,
-    user,
-  };
+  return json(
+    {
+      ...game,
+      coverArt: game.coverArt
+        ? Buffer.from(game.coverArt).toString("base64")
+        : null,
+      backgroundImage: game.backgroundImage
+        ? Buffer.from(game.backgroundImage).toString("base64")
+        : null,
+      user,
+    },
+    {
+      headers: {
+        "Cache-Control": "max-age=3600, public",
+      },
+    }
+  );
 }
 
 async function updateMetadata(submission: Submission<UpdateMetadata>) {
@@ -314,7 +321,8 @@ export default function RomDetails() {
           alt="Background"
           className="opacity-40 object-cover h-full w-full"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black from-1% via-black/10 to-black to-99%" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
       </div>
 
       {/* Content */}
@@ -445,6 +453,7 @@ export default function RomDetails() {
                         {...getInputProps(fields.summary, {
                           type: "text",
                         })}
+                        required
                       ></Textarea>
                     </div>
                   </Form>
@@ -462,7 +471,9 @@ export default function RomDetails() {
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
               {gameGenres.map((gameGenre, i) => (
-                <Badge key={i}>{gameGenre.genre.name}</Badge>
+                <Badge key={i} variant="secondary" className="rounded">
+                  {gameGenre.genre.name}
+                </Badge>
               ))}
             </div>
             <p className="text-lg mb-6">{summary}</p>

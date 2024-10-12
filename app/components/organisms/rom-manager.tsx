@@ -1,24 +1,24 @@
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import { Game } from "@prisma/client";
-import { GameCard } from "../molecules/game-card";
-import { GenericCarousel } from "../molecules/game-carousel";
+import { GenericCarousel } from "../molecules/generic-carousel";
+import { GameCard } from "../molecules/generic-game-card";
 
-type RomType = {
+export type RomType = {
   title: Game["title"];
   coverArt: string;
   system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
 };
 
-export type RomManagerType = {
+type RomManagerType = {
   games: RomType[];
 };
 
 export default function RomManager({ games }: RomManagerType) {
   return (
     <div className="min-h-screen px-14">
-      <div className="space-y-12">
+      <div className="space-y-2">
         {SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(({ title }) => (
-          <div key={title} className="space-y-4">
+          <div key={title}>
             <h2 className="text-2xl font-semibold">{title}</h2>
             <GenericCarousel<RomType>
               items={games.filter((rom) => rom.system.title === title)}

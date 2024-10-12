@@ -2,19 +2,20 @@ import { prettifyROMTitles } from "@/lib/const";
 import { cn } from "@/lib/utils";
 import { Link } from "@remix-run/react";
 
-type GameCardProps = {
+type GameCardType = {
   title: string;
   coverArt: string;
   systemTitle: string;
 };
 
-export function GameCard({ title, coverArt, systemTitle }: GameCardProps) {
+export function GameCard({ title, coverArt, systemTitle }: GameCardType) {
   return (
     <button
       className={cn(
-        "aspect-[3/4] relative group cursor-pointer overflow-hidden"
+        "aspect-[3/4] relative  cursor-pointer overflow-hidden group"
       )}
       type="submit"
+      disabled
     >
       <Link
         to={`/details/${systemTitle.toLowerCase()}/${prettifyROMTitles(title)}`}
@@ -25,7 +26,7 @@ export function GameCard({ title, coverArt, systemTitle }: GameCardProps) {
           width={300}
           height={400}
           alt={title}
-          className="transition-transform duration-300 ease-in-out object-cover border group-hover:scale-110"
+          className="transition-transform duration-300 ease-in-out object-cover group-hover:scale-110 h-full"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-0 group-hover:opacity-90 transition-opacity duration-300 p-4">
           <p className="absolute bottom-10 left-2 right-2 text-2xl font-medium text-center">
@@ -41,7 +42,7 @@ export function GameCardSkeleton() {
   return (
     <div
       className={cn(
-        "aspect-[3/4] relative overflow-hidden rounded-lg bg-accent/25 animate-pulse"
+        "aspect-[3/4] relative overflow-hidden bg-accent/25 animate-pulse"
       )}
     >
       <div className="w-full h-full bg-accent" />

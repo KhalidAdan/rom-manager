@@ -1,6 +1,7 @@
 // app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
-import RomManager, { RomManagerType } from "@/components/organisms/rom-manager";
+import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
+import RomManager, { RomType } from "@/components/organisms/rom-manager";
 import {
   TopGenresCarousel,
   TopGenresCarouselType,
@@ -17,9 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
-import { cn } from "@/lib/utils";
+import { cn, shuffle } from "@/lib/utils";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
-import { LoaderFunctionArgs } from "@remix-run/node";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Intent } from "./details.$system.$title";
 
@@ -109,43 +110,53 @@ export async function loader({ request }: LoaderFunctionArgs) {
       };
     }
 
-    return {
-      games: games.map((game) => {
-        return {
-          ...game,
-          coverArt: game.coverArt
-            ? Buffer.from(game.coverArt).toString("base64")
-            : "",
-        };
-      }),
-      genres: genres.map((genre) => ({
-        name: genre.name,
-        gameGenres: genre.gameGenres.map((gg) => ({
-          title: gg.game.title,
-          coverArt: gg.game.coverArt
-            ? Buffer.from(gg.game.coverArt).toString("base64")
-            : undefined,
-          system: {
-            title: gg.game.system.title,
-          },
-        })),
-      })),
-      lastPlayedGame: lastPlayedGame
-        ? {
-            randomGame: randomGame,
-            title: lastPlayedGame.game.title,
-            summary: lastPlayedGame.game.summary,
-            system: lastPlayedGame.game.system.title,
-            backgroundImage: lastPlayedGame.game.backgroundImage
-              ? Buffer.from(lastPlayedGame.game.backgroundImage).toString(
-                  "base64"
-                )
-              : undefined,
-          }
-        : undefined,
+    return json(
+      {
+        games: games.map((game) => {
+          return {
+            ...game,
+            coverArt: game.coverArt
+              ? Buffer.from(game.coverArt).toString("base64")
+              : "",
+          };
+        }),
+        genres: shuffle(
+          genres.map((genre) => ({
+            name: genre.name,
+            gameGenres: genre.gameGenres.map((gg) => ({
+              title: gg.game.title,
+              coverArt: gg.game.coverArt
+                ? Buffer.from(gg.game.coverArt).toString("base64")
+                : undefined,
+              system: {
+                title: gg.game.system.title,
+              },
+            })),
+          }))
+        ),
+        lastPlayedGame: lastPlayedGame
+          ? {
+              randomGame: randomGame,
+              title: lastPlayedGame.game.title,
+              summary: lastPlayedGame.game.summary,
+              system: lastPlayedGame.game.system.title,
+              backgroundImage: lastPlayedGame.game.backgroundImage
+                ? Buffer.from(lastPlayedGame.game.backgroundImage).toString(
+                    "base64"
+                  )
+                : undefined,
+              random: true,
+            }
+          : undefined,
 
-      randomGame,
-    };
+        randomGame,
+      },
+      {
+        headers: {
+          "Cache-Control": "max-age=3600, public",
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error("Error reading directory:", error);
     return {
@@ -163,11 +174,11 @@ export default function Explore() {
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
-    <main className="bg-background">
-      <div className="flex justify-between pt-10 px-14">
+    <main className="bg-black">
+      <div className="flex justify-between pt-10 px-16">
         <div className="w-full flex justify-between">
-          <h1 className="text-4xl font-light mb-4 tracking-tight font-mono italic">
-            ROMSTHO
+          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
+            {"{"} ROMSTHO {"}"}
           </h1>
           <div className="flex gap-4">
             {games.length > 0 && (
@@ -225,9 +236,15 @@ export default function Explore() {
           </div>
         </div>
       </div>
-      {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
-      <RomManager games={games as RomManagerType["games"]} />
-      <TopGenresCarousel genres={genres as TopGenresCarouselType} />
+      <div className="scrollbar-hidden">
+        {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
+        <RomManager games={games as RomType[]} />
+        <DiscoveryQueue />
+        <TopGenresCarousel genres={genres as TopGenresCarouselType} />
+      </div>
+      <div className="max-w-7xl mx-auto py-14">
+        <Link to="/settings">Settings</Link>
+      </div>
     </main>
   );
 }
