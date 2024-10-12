@@ -229,18 +229,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
                   },
                 },
               },
-              genres: game.genres
+              gameGenres: game.genres
                 ? {
-                    connectOrCreate: game.genres.map((genre) => ({
-                      where: {
-                        name: genre.name,
-                      },
-                      create: {
-                        name: genre.name,
+                    create: game.genres.map((genre) => ({
+                      genre: {
+                        connectOrCreate: {
+                          where: { name: genre.name },
+                          create: { name: genre.name },
+                        },
                       },
                     })),
                   }
                 : undefined,
+            },
+            include: {
+              system: true,
             },
           });
           await sleep(300); // IGDB rate limit
@@ -341,6 +344,7 @@ export default function Onboarding() {
       return parseWithZod(formData, { schema: OnboardingSchema });
     },
   });
+
   return (
     <main className="h-full w-full flex justify-center items-center">
       <Card className="min-w-max max-w-3xl h-fit">

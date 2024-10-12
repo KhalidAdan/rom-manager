@@ -26,13 +26,13 @@ export function GenericCarousel<T>({
       }}
       className="w-full"
     >
-      <CarouselContent className="-ml-2 md:-ml-4">
+      <CarouselContent className="">
         {items.map((item, index) => (
           <CarouselItem
             key={index}
             className={
               itemClassName ||
-              "pl-2 md:pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
+              "basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
             }
           >
             {renderItem(item, index)}

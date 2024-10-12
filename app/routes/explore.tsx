@@ -18,7 +18,7 @@ import {
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
-import { getRandomGame } from "@prisma/client/sql";
+import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Intent } from "./details.$system.$title";
@@ -63,29 +63,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     let [randomGame] = await prisma.$queryRawTyped(getRandomGame());
 
-    let topFiveGameGenres = await prisma.genre.groupBy({
-      by: ["name"],
-      _count: {
-        name: true,
-      },
-      orderBy: {
-        _count: {
-          name: "desc",
-        },
-      },
-      take: 5,
-    });
+    let topFiveGameGenres = await prisma.$queryRawTyped(getTopGenres(5));
+    let searchGenres = topFiveGameGenres.map((genre) => genre.name);
 
-    let gamesByGenre = await prisma.genre.findMany({
+    let genres = await prisma.genre.findMany({
       select: {
         name: true,
-        games: {
+        gameGenres: {
           select: {
-            title: true,
-            coverArt: true,
-            system: {
+            game: {
               select: {
                 title: true,
+                coverArt: true,
+                system: {
+                  select: {
+                    title: true,
+                  },
+                },
               },
             },
           },
@@ -93,15 +87,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
       where: {
         name: {
-          in: topFiveGameGenres.map((genre) => genre.name),
+          in: searchGenres,
         },
       },
-      take: 5,
-      orderBy: {
-        games: {
-          _count: "desc",
-        },
-      },
+      take: 3,
     });
 
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
@@ -129,16 +118,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
             : "",
         };
       }),
-      gamesByGenre: gamesByGenre.map((genre) => ({
-        ...genre,
-        games: genre.games.map((game) => {
-          return {
-            ...game,
-            coverArt: game.coverArt
-              ? Buffer.from(game.coverArt).toString("base64")
-              : "",
-          };
-        }),
+      genres: genres.map((genre) => ({
+        name: genre.name,
+        gameGenres: genre.gameGenres.map((gg) => ({
+          title: gg.game.title,
+          coverArt: gg.game.coverArt
+            ? Buffer.from(gg.game.coverArt).toString("base64")
+            : undefined,
+          system: {
+            title: gg.game.system.title,
+          },
+        })),
       })),
       lastPlayedGame: lastPlayedGame
         ? {
@@ -168,7 +158,7 @@ export default function Explore() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred</div>;
 
-  let { games, gamesByGenre, lastPlayedGame, randomGame } = data;
+  let { games, genres, lastPlayedGame, randomGame } = data;
 
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
@@ -237,7 +227,7 @@ export default function Explore() {
       </div>
       {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
       <RomManager games={games as RomManagerType["games"]} />
-      <TopGenresCarousel genres={gamesByGenre as TopGenresCarouselType} />
+      <TopGenresCarousel genres={genres as TopGenresCarouselType} />
     </main>
   );
 }

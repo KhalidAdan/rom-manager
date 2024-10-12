@@ -55,7 +55,6 @@ model Game {
   // relations
   systemId   Int          @map("system_id")
   system     System       @relation(fields: [systemId], references: [id])
-  genres     Genre[]
   GameStats  GameStats[]
   gameGenres GameGenres[]
 
@@ -79,24 +78,24 @@ model Genre {
   id         Int          @id @default(autoincrement())
   name       String       @unique
   // relations
-  games      Game[]
   gameGenres GameGenres[]
 
   @@map("genres")
 }
 
 model User {
-  id         Int         @id @default(autoincrement())
-  email      String      @unique
-  password   String // hashed before saving
-  created_at DateTime    @default(now())
-  updated_at DateTime?   @default(now())
+  id               Int         @id @default(autoincrement())
+  email            String      @unique
+  password         String // hashed before saving
+  created_at       DateTime    @default(now())
+  updated_at       DateTime?   @default(now())
+  signupVerifiedAt DateTime?
   // relations
-  roleId     Int
-  role       Role        @relation(fields: [roleId], references: [id])
-  sessions   Session[]
-  gameStats  GameStats[]
-  Game       Game[]
+  roleId           Int
+  role             Role        @relation(fields: [roleId], references: [id])
+  sessions         Session[]
+  gameStats        GameStats[]
+  Game             Game[]
 
   @@map("users")
 }

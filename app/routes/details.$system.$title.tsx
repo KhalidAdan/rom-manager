@@ -122,9 +122,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           title: true,
         },
       },
-      genres: {
+      gameGenres: {
         select: {
-          name: true,
+          genre: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },
@@ -266,7 +270,7 @@ export default function RomDetails() {
     coverArt,
     backgroundImage,
     summary,
-    genres,
+    gameGenres,
     borrowedBy,
     user,
   } = useLoaderData<typeof loader>();
@@ -457,8 +461,8 @@ export default function RomDetails() {
               {expensiveDate}
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
-              {genres.map((genre, i) => (
-                <Badge key={i}>{genre.name}</Badge>
+              {gameGenres.map((gameGenre, i) => (
+                <Badge key={i}>{gameGenre.genre.name}</Badge>
               ))}
             </div>
             <p className="text-lg mb-6">{summary}</p>
