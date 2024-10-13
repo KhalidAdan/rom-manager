@@ -45,6 +45,7 @@
     "remix-auth": "^3.7.0",
     "remix-auth-form": "^1.5.0",
     "remix-auth-google": "^2.0.0",
+    "remix-utils": "^7.7.0",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7"

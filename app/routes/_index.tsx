@@ -1,4 +1,5 @@
 import { buttonVariants } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { cn } from "@/lib/utils";
 import { Link } from "@remix-run/react";
 
@@ -97,20 +98,15 @@ export default function Home() {
               Some still exist where all they ask is that you explore the land
               and save the realm. You just need to remember them.
             </p>
-            <p className="text-xl mb-8 font-sans-serif">
+            <p className="text-xl !mb-8 font-sans-serif">
               Share the magic of those adventures. Let others feel the joy of
               discovery, where every moment holds a memory and every game
               invites you to escape.
             </p>
-            <Link
-              preventScrollReset
-              to="/explore"
-              className={cn(
-                buttonVariants({ variant: "default" }),
-                "font-sans font-bold !mt-8"
-              )}
-            >
-              Reconnect with the past
+            <Link to="/explore">
+              <RainbowButton className="text-xl font-semibold">
+                Reconnect with the past
+              </RainbowButton>
             </Link>
           </div>
         </div>

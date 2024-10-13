@@ -22,7 +22,7 @@ import { cn, shuffle } from "@/lib/utils";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { Intent } from "./details.$system.$title";
+import { Intent } from "./details.$system.$id";
 
 async function getLastPlayedGame() {
   return await prisma.gameStats.findFirst({
@@ -52,6 +52,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     let games = await prisma.game.findMany({
       select: {
+        id: true,
         title: true,
         coverArt: true,
         system: {
@@ -74,6 +75,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           select: {
             game: {
               select: {
+                id: true,
                 title: true,
                 coverArt: true,
                 system: {

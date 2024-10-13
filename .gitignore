@@ -9,3 +9,6 @@ scratch.md
 /.cache
 /build
 .env
+
+# Scratchpad for sql
+--sql-queries-no-merge/

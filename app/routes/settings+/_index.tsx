@@ -20,13 +20,36 @@ import {
 } from "@/components/ui/table";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
+import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+import {
+  filterOutUnsupportedFileTypes,
+  findUniqueFileNames,
+  getFilesRecursively,
+  processFilePathsIntoGameObjects,
+  processFolderSubmission,
+  validateFolder,
+} from "@/lib/fs.server";
+import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
-import { getInputProps, useForm } from "@conform-to/react";
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import { LoaderFunctionArgs, redirect } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
-import { Info } from "lucide-react";
+import {
+  ActionFunctionArgs,
+  json,
+  LoaderFunctionArgs,
+  redirect,
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { FileWarning, Info } from "lucide-react";
 import { z } from "zod";
+
+enum Intent {
+  SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
+}
+
+enum RefusalReason {
+  NOT_ALLOWED = "not-allowed",
+}
 
 interface User {
   id: string;
@@ -79,9 +102,17 @@ let mockBorrowedGames: BorrowedGame[] = [
   { id: "3", title: "Metroid", borrower: "Charlie", borrowDate: "2024-09-25" },
 ];
 
-enum RefusalReason {
-  NOT_ALLOWED = "not-allowed",
-}
+let ScanFolderSchema = z.object({
+  intent: z.literal(Intent.SET_ROM_FOLDER_LOCATION),
+  id: z.number(),
+  romFolderLocation: z.string(),
+});
+
+let UserSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+  roleId: z.number(),
+});
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
@@ -94,27 +125,79 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return settings;
 }
 
-let SettingsSchema = z.object({
-  id: z.number(),
-  romFolderLocation: z.string().optional(),
-  categoryRecs: z.string().optional(),
-  discoveryQueue: z.string().optional(),
-});
+export async function action({ request }: ActionFunctionArgs) {
+  let submission = await processFolderSubmission(request);
 
-let UserSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-  roleId: z.number(),
-});
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { romFolderLocation, intent } = submission.value;
+
+  if (intent !== Intent.SET_ROM_FOLDER_LOCATION) {
+    return json(
+      submission.reply({ formErrors: ["Received an unknown intent"] }),
+      { status: 400 }
+    );
+  }
+
+  if (!validateFolder(romFolderLocation)) {
+    return json(
+      submission.reply({
+        formErrors: ["The folder you provided does not exist!"],
+      }),
+      { status: 400 }
+    );
+  }
+
+  let [accessToken, rawDiskFiles] = await Promise.all([
+    getIGDBAccessToken(),
+    getFilesRecursively(romFolderLocation),
+  ]);
+
+  console.log(accessToken);
+
+  let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+    (system) => system.extension
+  );
+
+  let dbFiles = await prisma.game.findMany({
+    select: {
+      id: true,
+      fileName: true,
+    },
+  });
+
+  let allFiles = filterOutUnsupportedFileTypes(rawDiskFiles, extensions);
+  let newFiles = findUniqueFileNames(
+    dbFiles.map((db) => db.fileName),
+    allFiles
+  );
+
+  let games = processFilePathsIntoGameObjects(newFiles, extensions);
+
+  try {
+    console.log("processing transaction");
+    await scrapeRoms(accessToken, games);
+    console.log("Folder Scanning complete!");
+
+    return redirect("/explore");
+  } catch (error) {
+    console.error("Folder scanning transaction failed: ", error);
+    return json(submission.reply(), { status: 500 });
+  }
+}
 
 export default function SettingsPage() {
   let { id, romFolderLocation } = useLoaderData<typeof loader>();
 
   let [form, fields] = useForm({
-    constraint: getZodConstraint(SettingsSchema),
+    constraint: getZodConstraint(ScanFolderSchema),
     shouldValidate: "onBlur",
     onValidate({ formData }) {
-      return parseWithZod(formData, { schema: SettingsSchema });
+      return parseWithZod(formData, { schema: ScanFolderSchema });
     },
     defaultValue: {
       id,
@@ -135,24 +218,45 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
-                <div className="flex flex-col space-y-1.5">
-                  <Label htmlFor="romFolder">ROM Folder Path</Label>
+              <Form
+                className="grid gap-6"
+                {...getFormProps(form)}
+                method="POST"
+              >
+                <Input {...getInputProps(fields.id, { type: "hidden" })} />
+                <div className="grid gap-2">
+                  <Label htmlFor={fields.romFolderLocation.id}>
+                    Rom folder location
+                  </Label>
                   <Input
+                    className="w-full"
                     {...getInputProps(fields.romFolderLocation, {
                       type: "text",
                     })}
                   />
-                  <p className="flex items-center gap-2 pt-2">
-                    <Info size={18} /> We automatically uploads your ROMs to
-                    your local server (on your computer, using SQLite) so you
-                    can edit this location to scan other folders
+                  <p className="flex items-center gap-2 pt-1 text-sm">
+                    <Info className="text-blue-500" size={18} /> ROMSTHO
+                    automatically upload your ROMs to your local database (on
+                    your computer via SQLite) so you can edit this location to
+                    scan other folders
+                  </p>
+                  <p className="flex items-center gap-2 pt-1 text-sm">
+                    <FileWarning className="text-amber-500" size={18} /> If your
+                    roms were renamed since last scrape, then they will be
+                    re-added to your local database and you will see duplicate
                   </p>
                 </div>
-              </form>
+              </Form>
             </CardContent>
             <CardFooter>
-              <Button>Scan for Updates</Button>
+              <Button
+                form={form.id}
+                name="intent"
+                value={Intent.SET_ROM_FOLDER_LOCATION}
+                type="submit"
+              >
+                Set Directory
+              </Button>
             </CardFooter>
           </Card>
 
@@ -248,6 +352,13 @@ export default function SettingsPage() {
               <div className="flex items-center space-x-2">
                 <Checkbox id="showDiscoveryQueue" checked />
                 <Label htmlFor="showDiscoveryQueue">Show Discovery Queue</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="showIncompleteGameData" checked />
+                <Label htmlFor="showIncompleteGameData">
+                  Spotlight games that have incomplete information (like missing
+                  art, summaries, etc.)
+                </Label>
               </div>
             </CardContent>
           </Card>

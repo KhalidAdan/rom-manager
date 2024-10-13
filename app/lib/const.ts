@@ -18,9 +18,6 @@ export const DATA_DIR = "/emulatorjs/data/";
 export const MAX_UPLOAD_SIZE = 1024 * 1024 * 5;
 export const ROM_MAX_SIZE = 1024 * 1024 * 24;
 
-export const prettifyROMTitles = (input: string) =>
-  input.replace(/\s*\([^)]*\)|\.\w+$/g, "");
-
 export const CATEGORY_MAIN_GAME = 0;
 export const CATEGORY_BUNDLE = 3;
 export const CATEGORY_REMAKE = 8;

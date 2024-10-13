@@ -4,6 +4,7 @@ import { GenericCarousel } from "../molecules/generic-carousel";
 import { GameCard } from "../molecules/generic-game-card";
 
 export type RomType = {
+  id: Game["id"];
   title: Game["title"];
   coverArt: string;
   system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
@@ -24,6 +25,7 @@ export default function RomManager({ games }: RomManagerType) {
               items={games.filter((rom) => rom.system.title === title)}
               renderItem={(rom) => (
                 <GameCard
+                  id={rom.id}
                   title={rom.title}
                   coverArt={rom.coverArt}
                   systemTitle={title}

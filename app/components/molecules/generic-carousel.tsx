@@ -51,7 +51,7 @@ export function GenericCarousel<T>({
         skipSnaps: true,
         slidesToScroll: slidesToScroll ?? undefined,
       }}
-      className="w-full"
+      className="w-full select-none"
     >
       <CarouselContent className="-ml-2 md:-ml-4">
         {items.map((item, index) => (

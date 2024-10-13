@@ -55,7 +55,7 @@ const mockGames: Game[] = [
 
 function StarRating({ rating }: { rating: number }) {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center mt-4">
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
@@ -87,7 +87,7 @@ export function DiscoveryQueue() {
                 <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-6xl p-10 select-none">
               <DialogHeader>
                 <DialogTitle>Your Discovery Queue</DialogTitle>
                 <DialogDescription>
@@ -95,20 +95,20 @@ export function DiscoveryQueue() {
                   navigate through the queue.
                 </DialogDescription>
               </DialogHeader>
-              <Carousel className="w-full mt-4">
+              <Carousel className="w-full mt-4" opts={{ loop: true }}>
                 <CarouselContent>
                   {mockGames.map((game) => (
                     <CarouselItem key={game.id}>
-                      <div className="grid grid-cols-3 h-[400px]">
-                        <div className="h-full">
+                      <div className="grid grid-cols-3">
+                        <div className="h-full border-2 border-neutral-700 shadow-lg shadow-neutral-500 dark:border-neutral-400 dark:shadow-neutral-600">
                           <img
                             src={game.coverArt}
                             alt={game.title}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="col-span-2 p-6 flex flex-col justify-between">
-                          <div>
+                        <div className="col-span-2 px-6 pt-6 flex flex-col justify-between">
+                          <div className="flex-grow">
                             <h3 className="text-2xl font-bold mb-2">
                               {game.title}
                             </h3>
@@ -128,11 +128,11 @@ export function DiscoveryQueue() {
                 </CarouselContent>
                 <CarouselPrevious
                   variant="ghost"
-                  className="-left-20 h-12 w-12 rounded-none"
+                  className="-left-24 h-12 w-12 rounded-none"
                 />
                 <CarouselNext
                   variant="ghost"
-                  className="-right-20 h-12 w-12 rounded-none"
+                  className="-right-24 h-12 w-12 rounded-none"
                 />
               </Carousel>
             </DialogContent>

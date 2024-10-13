@@ -1,3 +1,7 @@
+import {
+  DeleteROM,
+  DeleteROMForm,
+} from "@/components/molecules/delete-rom-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -30,6 +34,7 @@ import {
   json,
   LoaderFunctionArgs,
   unstable_parseMultipartFormData as parseMultipartFormData,
+  redirect,
 } from "@remix-run/node";
 import {
   Form,
@@ -39,7 +44,7 @@ import {
   useNavigate,
 } from "@remix-run/react";
 import { ArrowLeft, Lock } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
 type RomDetails = {
@@ -54,6 +59,7 @@ type RomDetails = {
 export enum Intent {
   UpdateMetadata = "update-metadata",
   UpdateLastPlayed = "update-last-played",
+  DeleteRom = "delete-rom",
 }
 
 let UpdateMetadata = z
@@ -69,7 +75,7 @@ let UpdateMetadata = z
         "coverArt must be no larger than 5MB"
       )
       .optional(),
-    summary: z.string(),
+    summary: z.string().optional(),
     backgroundImage: z
       .instanceof(File)
       .refine(
@@ -101,7 +107,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   let game = await prisma.game.findFirst({
     where: {
-      title: params.title,
+      id: Number(params.id),
     },
     select: {
       id: true,
@@ -231,7 +237,23 @@ async function updateLastPlayed(
   return null;
 }
 
+async function deleteRom(submission: Submission<DeleteROM>) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { id } = submission.value;
+  return await prisma.game.delete({
+    where: {
+      id,
+    },
+  });
+}
+
 export async function action({ request }: ActionFunctionArgs) {
+  console.log("action invoked");
   let user = await requireUser(request);
   let contentType = request.headers.get("content-type");
   let formData: FormData;
@@ -256,14 +278,23 @@ export async function action({ request }: ActionFunctionArgs) {
       return await updateLastPlayed(submission, user.id);
     }
     case Intent.UpdateMetadata: {
+      console.log("update metadata!");
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
 
       return await updateMetadata(submission);
     }
+    case Intent.DeleteRom: {
+      let submission = parseWithZod(formData, {
+        schema: DeleteROM,
+      });
+
+      await deleteRom(submission);
+      return redirect(`/explore?redirect_reason=${Intent.DeleteRom}`);
+    }
     default: {
-      return null;
+      throw new Error("Unknown intent: " + intent);
     }
   }
 }
@@ -283,17 +314,17 @@ export default function RomDetails() {
   } = useLoaderData<typeof loader>();
   let [expensiveDate] = useState(() =>
     // seconds to milliseconds, IGDB uses seconds
-    new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(new Date(releaseDate * 1000))
+    releaseDate
+      ? new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(new Date(releaseDate * 1000))
+      : undefined
   );
   let navigate = useNavigate();
-  let formId = useId();
 
   let [form, fields] = useForm({
-    id: formId,
     constraint: getZodConstraint(UpdateMetadata),
     defaultValue: {
       id,
@@ -345,12 +376,12 @@ export default function RomDetails() {
                   : "https://placehold.co/540x720"
               }
               alt={title}
-              className="rounded-lg shadow-lg w-[540px] h-[720px]"
+              className="aspect-[3/4] rounded-lg shadow-lg w-[540px] h-[720px]"
             />
           </div>
 
           {/* Details */}
-          <div className="flex flex-col justify-center">
+          <div className="flex flex-col flex-1 justify-center">
             {borrowedBy && (
               <div className="mb-4">
                 <div className="space-y-2 mb-2 py-4">
@@ -389,9 +420,14 @@ export default function RomDetails() {
                 </div>
               </div>
             )}
-            <div className="flex items-center justify-between gap-x-4">
-              <h1 className="flex items-center gap-4 text-4xl font-bold mb-2 font-sans-serif self-start">
-                {title} <span className="uppercase">({system.title})</span>
+            <div className="mb-2">
+              <Badge className="rounded bg-background" variant="outline">
+                {system.title}
+              </Badge>
+            </div>
+            <div className="w-full flex items-start justify-between gap-x-4">
+              <h1 className="flex items-center gap-4 text-5xl mb-2 font-serif max-w-2xl">
+                {title}
               </h1>
               <Dialog>
                 <DialogTrigger asChild>
@@ -453,13 +489,13 @@ export default function RomDetails() {
                         {...getInputProps(fields.summary, {
                           type: "text",
                         })}
-                        required
                       ></Textarea>
                     </div>
                   </Form>
 
                   <DialogFooter className="w-full">
-                    <Button type="submit" form={formId}>
+                    <DeleteROMForm id={id} />
+                    <Button type="submit" form={form.id}>
                       Save
                     </Button>
                   </DialogFooter>
@@ -467,7 +503,7 @@ export default function RomDetails() {
               </Dialog>
             </div>
             <p className="text-muted-foreground mb-4 text-lg">
-              {expensiveDate}
+              {expensiveDate && expensiveDate}
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
               {gameGenres.map((gameGenre, i) => (
@@ -476,7 +512,11 @@ export default function RomDetails() {
                 </Badge>
               ))}
             </div>
-            <p className="text-lg mb-6">{summary}</p>
+            <p className="text-lg mb-6">
+              {summary && summary.length > 325
+                ? summary.slice(0, 325) + `...`
+                : summary}
+            </p>
             <div className="flex gap-4">
               {!borrowedBy ? (
                 <Link

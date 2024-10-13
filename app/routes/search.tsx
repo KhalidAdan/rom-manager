@@ -197,6 +197,7 @@ export default function Search() {
                       key={rom.id}
                     >
                       <GameCard
+                        id={rom.id}
                         title={rom.title}
                         coverArt={rom.coverArt ?? ""}
                         systemTitle={rom.systemTitle}
