@@ -6,7 +6,7 @@ import {
   makeSession,
 } from "@/lib/auth/session.server";
 import { prisma } from "@/lib/prisma.server";
-import { ActionFunctionArgs, redirect } from "@remix-run/node";
+import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
 
 export async function loader() {
   return redirect("/authenticate");
@@ -14,26 +14,34 @@ export async function loader() {
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   let providerName = Provider.parse(params.provider);
-  let user = await authenticator.authenticate(providerName, request, {
-    failureRedirect: "/authenticate",
-  });
+  console.log(providerName);
+  try {
+    let user = await authenticator.authenticate(providerName, request);
 
-  let { id } = await makeSession(user.id);
+    let { id } = await makeSession(user.id);
 
-  let session = await getSession(request.headers.get("Cookie"));
+    let session = await getSession(request.headers.get("Cookie"));
 
-  session.set(sessionKeyPrefix, id);
-  session.set("user", user);
-  session.set("strategy", providerName);
+    session.set(sessionKeyPrefix, id);
+    session.set("user", user);
+    session.set("strategy", providerName);
 
-  let headers = new Headers({
-    "Set-Cookie": await commitSession(session),
-  });
+    let headers = new Headers({
+      "Set-Cookie": await commitSession(session),
+    });
 
-  let settings = await prisma.settings.findFirst();
+    let settings = await prisma.settings.findFirst();
 
-  if (settings == null) {
-    return redirect("/onboarding", { headers });
+    if (settings == null) {
+      return redirect("/onboarding", { headers });
+    }
+    return redirect("/explore", { headers });
+  } catch (error) {
+    return json(
+      {
+        error: "Invalid credentials",
+      },
+      { status: 500 }
+    );
   }
-  return redirect("/explore", { headers });
 }

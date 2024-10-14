@@ -1,4 +1,9 @@
-import { type LinksFunction, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+  type LinksFunction,
+  LoaderFunctionArgs,
+  json,
+  redirect,
+} from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -7,10 +12,12 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import { Toaster } from "./components/ui/toaster";
+import { requireUser } from "./lib/auth/auth.server";
+import { UserRoles } from "./lib/auth/providers.server";
 import { getHints } from "./lib/client-hints";
 import { getTheme } from "./lib/theme.server";
 import { cn } from "./lib/utils";
-import { useTheme } from "./routes/resources+/set-theme";
 import "./tailwind.css";
 
 export let links: LinksFunction = () => [
@@ -39,6 +46,23 @@ export let links: LinksFunction = () => [
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  let url = new URL(request.url);
+  console.log("path", url.pathname);
+  let isAuthRoute = [
+    "/authenticate",
+    "/auth",
+    "/needs-permission",
+    "/",
+  ].includes(url.pathname);
+
+  if (isAuthRoute) return null;
+
+  let user = await requireUser(request);
+  console.log(user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN);
+  if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
+    return redirect("/needs-permission");
+  }
+
   return json({
     requestInfo: {
       hints: getHints(request),
@@ -50,9 +74,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  let theme = useTheme();
   return (
-    <html lang="en" className={cn("h-full w-full", theme)}>
+    <html lang="en" className={cn("h-full w-full dark")}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -61,6 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="h-full w-full">
         {children}
+        <Toaster />
         <ScrollRestoration
           getKey={(location) => {
             return location.pathname;

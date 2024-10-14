@@ -1,9 +1,16 @@
 import { buttonVariants } from "@/components/ui/button";
 import { RainbowButton } from "@/components/ui/rainbow-button";
+import { getUser } from "@/lib/auth/auth.server";
 import { cn } from "@/lib/utils";
-import { Link } from "@remix-run/react";
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { Link, useLoaderData } from "@remix-run/react";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  return getUser(request);
+}
 
 export default function Home() {
+  let user = useLoaderData<typeof loader>();
   return (
     <main className="bg-black">
       <svg
@@ -71,13 +78,13 @@ export default function Home() {
           </h2>
           <Link
             preventScrollReset
-            to="/authenticate"
+            to={!user ? "/authenticate" : "/auth/logout"}
             className={cn(
               buttonVariants({ variant: "outline" }),
               "tracking-tight font-mono italic"
             )}
           >
-            Login
+            {!user ? "Login" : "Logout"}
           </Link>
         </header>
         <div className="absolute inset-0">
@@ -104,7 +111,7 @@ export default function Home() {
               invites you to escape.
             </p>
             <Link to="/explore">
-              <RainbowButton className="text-xl font-semibold">
+              <RainbowButton className="text-xl font-semibold mt-4">
                 Reconnect with the past
               </RainbowButton>
             </Link>

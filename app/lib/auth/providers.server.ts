@@ -1,5 +1,6 @@
 import { invariant } from "@epic-web/invariant";
 import argon2 from "argon2";
+import { AuthorizationError } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
 import { z } from "zod";
 import { prisma } from "../prisma.server";
@@ -21,24 +22,27 @@ let formStrategy = new FormStrategy(async ({ form, context }) => {
   invariant(typeof password === "string", "password must be a string");
   invariant(password.length > 0, "password must not be empty");
 
-  let hashedPassword = await argon2.hash(password);
-
   let user = await prisma.user.findUnique({
     where: {
       email: email,
     },
   });
 
-  let settings = await prisma.settings.findFirst();
-
   if (!user) {
+    let hashedPassword = await argon2.hash(password);
+    let settings = await prisma.settings.findFirst();
     user = await prisma.user.create({
       data: {
         email: email,
         password: hashedPassword,
-        roleId: settings === null ? UserRoles.ADMIN : UserRoles.VIEWER, // TODO: get the value from context or form submission via intents, maybe even invites from request.url
+        roleId: settings === null ? UserRoles.ADMIN : UserRoles.VIEWER,
       },
     });
+  } else {
+    let isValid = await argon2.verify(user.password, password);
+    if (!isValid) {
+      throw new AuthorizationError("Invalid credentials");
+    }
   }
 
   return user;

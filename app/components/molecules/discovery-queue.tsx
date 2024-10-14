@@ -74,8 +74,8 @@ export function DiscoveryQueue() {
 
   return (
     <div className="w-full space-y-4 mt-12">
-      <Card className="x-20 w-full bg-gradient-to-r from-blue-900 to-purple-900 overflow-hidden">
-        <CardContent className="p-0 max-w-5xl mx-auto flex items-center justify-between">
+      <Card className="bg-gradient-to-r from-blue-900 to-teal-700 overflow-hidden">
+        <CardContent className="p-0 max-w-5xl mx-auto flex items-center justify-between min-h-[250px]">
           <div className="p-6 space-y-2">
             <h2 className="text-4xl font-bold">Explore Your Queue</h2>
             <p className="text-xl">Discover new games tailored just for you</p>

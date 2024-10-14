@@ -2,6 +2,7 @@ import { GenericCarousel } from "../molecules/generic-carousel";
 import { GameCard } from "../molecules/generic-game-card";
 
 interface Game {
+  id: number;
   title: string;
   coverArt: string;
   system: {
@@ -30,6 +31,7 @@ export function TopGenresCarousel({
             items={genre.gameGenres}
             renderItem={(game) => (
               <GameCard
+                id={game.id}
                 title={game.title}
                 coverArt={game.coverArt}
                 systemTitle={game.system.title}

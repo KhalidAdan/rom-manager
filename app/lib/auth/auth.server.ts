@@ -1,9 +1,5 @@
 // app/services/auth.server.ts
-import {
-  destroySession,
-  getSession,
-  sessionStore,
-} from "@/lib/auth/session.server";
+import { getSession, sessionStore } from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
 import { redirect } from "@remix-run/node";
 import { Authenticator } from "remix-auth";
@@ -72,12 +68,7 @@ export async function requireUser(
       .filter(Boolean)
       .join("?");
 
-    let authSession = await getSession(request.headers.get("Cookie"));
-    let headers = new Headers({
-      "Set-Cookie": await destroySession(authSession),
-    });
-
-    throw redirect(loginRedirect, { headers });
+    throw redirect(loginRedirect);
   }
 
   return user;

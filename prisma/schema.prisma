@@ -12,9 +12,12 @@ datasource db {
 }
 
 model Settings {
-  id                 Int       @id @default(autoincrement())
-  romFolderLocation  String
-  onboardingComplete DateTime?
+  id                      Int       @id @default(autoincrement())
+  romFolderLocation       String
+  onboardingComplete      DateTime?
+  showCategoryRecs        Boolean   @default(true)
+  showDiscovery           Boolean   @default(true)
+  spotlightIncompleteGame Boolean   @default(true)
 
   @@map("settings")
 }
@@ -58,7 +61,7 @@ model Game {
   GameStats  GameStats[]
   gameGenres GameGenres[]
 
-  borrowedBy User? @relation(fields: [userId], references: [id])
+  borrowedBy User? @relation(fields: [userId], references: [id], onDelete: SetNull)
   userId     Int?  @map("user_id")
 
   @@map("games")
@@ -105,7 +108,7 @@ model Session {
   expires DateTime
   //
   userId  Int      @map("user_id")
-  user    User     @relation(fields: [userId], references: [id]) //in Db add check constraint
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade) //in Db add check constraint
 
   @@map("sessions")
 }
@@ -116,7 +119,7 @@ model GameStats {
   totalPlayTime Int      @default(0) // in seconds, sent with unload event in /play
   // relations
   userId        Int
-  user          User     @relation(fields: [userId], references: [id])
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   gameId        Int
   game          Game     @relation(fields: [gameId], references: [id])
   Role          Role?    @relation(fields: [roleId], references: [id])

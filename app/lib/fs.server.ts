@@ -1,31 +1,9 @@
-import { parseWithZod } from "@conform-to/zod";
 import { promises as fs } from "fs";
 import { existsSync } from "node:fs";
 import path from "path";
-import { z } from "zod";
-import { requireUser } from "./auth/auth.server";
 
 enum Intent {
   SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
-}
-
-let FolderScanSchema = z.object({
-  id: z.number().optional(),
-  intent: z.literal(Intent.SET_ROM_FOLDER_LOCATION),
-  romFolderLocation: z.string(),
-});
-
-type FolderScanSchema = z.infer<typeof FolderScanSchema>;
-
-export async function processFolderSubmission(request: Request) {
-  await requireUser(request);
-  let formData = await request.formData();
-
-  let submission = parseWithZod(formData, {
-    schema: FolderScanSchema,
-  });
-
-  return submission;
 }
 
 export async function validateFolder(romFolderLocation: string) {

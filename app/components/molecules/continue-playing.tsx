@@ -5,18 +5,19 @@ import { Badge } from "../ui/badge";
 import { buttonVariants } from "../ui/button";
 
 type ContinuePlayingProps = {
-  lastPlayedGame: Pick<Game, "title" | "summary"> & {
+  lastPlayedGame: Pick<Game, "id" | "title" | "summary"> & {
     backgroundImage?: string | undefined;
     system: System["title"];
-    random?: boolean;
   };
+  random: boolean;
 };
 
 let truncateText = (str: string, maxLength = 300) =>
   str.length > maxLength ? str.slice(0, maxLength) + `...` : str;
 
 export function ContinuePlaying({
-  lastPlayedGame: { title, system, summary, backgroundImage, random },
+  lastPlayedGame: { id, title, system, summary, backgroundImage },
+  random,
 }: ContinuePlayingProps) {
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
@@ -32,16 +33,16 @@ export function ContinuePlaying({
         <Badge variant="outline" className="rounded">
           {system}
         </Badge>
-        <p className="text-lg py-3">{truncateText(summary)}</p>
+        <p className="text-lg py-3">{summary && truncateText(summary)}</p>
         <div className="mt-4 flex gap-4">
           <Link
-            to={`/play/${system}/${title}`}
+            to={`/play/${system}/${id}`}
             className={buttonVariants({ variant: "default", size: "lg" })}
           >
             <PlayCircle className="mr-2 h-6 w-6" /> Play
           </Link>
           <Link
-            to={`/details/${system}/${title}`}
+            to={`/details/${system}/${id}`}
             className={buttonVariants({ variant: "outline", size: "lg" })}
           >
             See details

@@ -1,16 +1,20 @@
+import { useInitializeEmulator } from "@/hooks/use-initialize-emulator";
+import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
+import { useReactiveGameLock } from "@/hooks/use-reactive-game-lock";
+import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { DATA_DIR } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
-import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
 import {
-  useBeforeUnload,
-  useFetcher,
-  useLoaderData,
-  useNavigate,
-} from "@remix-run/react";
-import { useCallback, useEffect, useRef } from "react";
+  ActionFunctionArgs,
+  json,
+  LoaderFunctionArgs,
+  redirect,
+} from "@remix-run/node";
+import { useBeforeUnload, useFetcher, useLoaderData } from "@remix-run/react";
+import { useCallback, useRef } from "react";
 import { z } from "zod";
 
 // declare EmulatorJS global variables
@@ -34,15 +38,16 @@ export enum Intent {
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await requireUser(request);
+  let user = await requireUser(request);
 
   let game = await prisma.game.findFirst({
     where: {
-      title: params.title,
+      id: Number(params.id),
     },
     select: {
       id: true,
       file: true,
+      fileName: true,
       title: true,
       system: {
         select: {
@@ -50,11 +55,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           extension: true,
         },
       },
+      borrowedBy: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
+  if (game.borrowedBy?.id !== user.id)
+    throw redirect(`/details/${game.system.title}/${game.id}`);
 
   let fileData = game.file.toString("base64");
 
@@ -63,7 +75,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // Prepare EmulatorJS configuration
   let emulatorConfig = {
     EJS_player: "#game",
-    EJS_gameName: game.title,
+    EJS_gameName: game.fileName,
     EJS_biosUrl: "",
     EJS_core: system == "gbc" ? "gambatte" : system,
     EJS_pathtodata: DATA_DIR,
@@ -127,7 +139,6 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Play() {
   let data = useLoaderData<typeof loader>();
   let emulatorInitialized = useRef(false);
-  let navigate = useNavigate();
   let fetcher = useFetcher({ key: data.clientIntent });
 
   let cleanupEmulator = useCallback(() => {
@@ -137,48 +148,13 @@ export default function Play() {
     }
   }, []);
 
-  useEffect(() => {
-    if (emulatorInitialized.current) return;
+  useReactiveGameLock(data.id);
 
-    let initializeEmulator = async () => {
-      try {
-        let blob = new Blob([
-          Uint8Array.from(atob(data.file), (c) => c.charCodeAt(0)),
-        ]);
-        let romURL = URL.createObjectURL(blob);
-
-        Object.assign(window, data.emulatorConfig, {
-          EJS_gameUrl: romURL,
-        });
-
-        let script = document.createElement("script");
-        script.src = DATA_DIR + "loader.js";
-        script.async = true;
-        document.body.appendChild(script);
-
-        emulatorInitialized.current = true;
-
-        const handlePopState = (_event: PopStateEvent) => {
-          cleanupEmulator();
-          fetcher.submit(
-            { intent: data.clientIntent, gameId: data.id },
-            { method: "POST" }
-          );
-        };
-        window.addEventListener("popstate", handlePopState);
-
-        return () => {
-          cleanupEmulator();
-          URL.revokeObjectURL(romURL);
-          document.body.removeChild(script);
-          window.removeEventListener("popstate", handlePopState);
-        };
-      } catch (error) {
-        console.error("Error initializing emulator:", error);
-      }
-    };
-
-    initializeEmulator();
+  useInitializeEmulator({
+    emulatorInitialized,
+    data,
+    cleanupEmulator,
+    fetcher,
   });
 
   useBeforeUnload((event: BeforeUnloadEvent) => {
@@ -189,41 +165,9 @@ export default function Play() {
       "Are you sure you want to exit? Your progress may be lost.");
   });
 
-  useEffect(() => {
-    const handleBeforeNavigate = (event: MouseEvent) => {
-      const target = event.target as HTMLAnchorElement;
-      if (target.tagName === "A" && target.href) {
-        event.preventDefault();
-        cleanupEmulator();
-        navigate(target.href);
-      }
-    };
+  useNavigationCleanup(cleanupEmulator);
 
-    document.body.addEventListener("click", handleBeforeNavigate);
-
-    return () => {
-      document.body.removeEventListener("click", handleBeforeNavigate);
-    };
-  }, [navigate, cleanupEmulator]);
-
-  useEffect(() => {
-    if (!emulatorInitialized.current) return;
-
-    const initializeGameManager = () => {
-      if (window.EJS_emulator) {
-        try {
-          console.log("Attempting save file loading");
-          window.EJS_emulator.gameManager.loadSaveFiles();
-        } catch (error) {
-          console.error("An error occurred getting save files", error);
-        }
-      } else {
-        console.error("EJS_GameManager is not available");
-      }
-    };
-
-    initializeGameManager();
-  }, [emulatorInitialized]);
+  useLoadSaveFiles(emulatorInitialized);
 
   return (
     <main>

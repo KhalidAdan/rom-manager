@@ -26,12 +26,16 @@ import {
   findUniqueFileNames,
   getFilesRecursively,
   processFilePathsIntoGameObjects,
-  processFolderSubmission,
   validateFolder,
 } from "@/lib/fs.server";
 import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
-import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import {
+  getFormProps,
+  getInputProps,
+  Submission,
+  useForm,
+} from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import {
   ActionFunctionArgs,
@@ -39,95 +43,100 @@ import {
   LoaderFunctionArgs,
   redirect,
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useFetcher, useLoaderData } from "@remix-run/react";
 import { FileWarning, Info } from "lucide-react";
 import { z } from "zod";
 
 enum Intent {
   SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
+  DISALLOW_SIGNUP = "disallow-signup",
+  ALLOW_SIGNUP = "allow-signup",
+  UPDATE_SHOW_CATEGORY_RECS = "update-show-category-recs",
+  UPDATE_SHOW_DISCOVERY = "update-show-discovery",
+  UPDATE_SPOTLIGHT_INCOMPLETE_GAME = "update-spotlight-incomplete-game",
 }
 
 enum RefusalReason {
   NOT_ALLOWED = "not-allowed",
 }
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  signupDate: string;
-}
-
-interface BorrowedGame {
-  id: string;
-  title: string;
-  borrower: string;
-  borrowDate: string;
-}
-
-let users: User[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john@example.com",
-    signupDate: "2024-10-01",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    signupDate: "2024-10-02",
-  },
-  {
-    id: "3",
-    name: "Bob Johnson",
-    email: "bob@example.com",
-    signupDate: "2024-10-03",
-  },
-];
-
-let mockBorrowedGames: BorrowedGame[] = [
-  {
-    id: "1",
-    title: "Super Mario Bros.",
-    borrower: "Alice",
-    borrowDate: "2024-09-15",
-  },
-  {
-    id: "2",
-    title: "The Legend of Zelda",
-    borrower: "Bob",
-    borrowDate: "2024-09-20",
-  },
-  { id: "3", title: "Metroid", borrower: "Charlie", borrowDate: "2024-09-25" },
-];
-
-let ScanFolderSchema = z.object({
+let FolderScanSchema = z.object({
+  id: z.number().optional(),
   intent: z.literal(Intent.SET_ROM_FOLDER_LOCATION),
-  id: z.number(),
   romFolderLocation: z.string(),
 });
 
-let UserSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
-  roleId: z.number(),
+type FolderScanSchema = z.infer<typeof FolderScanSchema>;
+
+let AllowSignup = z.object({
+  userId: z.number(),
+  intent: z.literal(Intent.ALLOW_SIGNUP),
 });
+
+type AllowSignup = z.infer<typeof AllowSignup>;
+
+let DisallowSignup = z.object({
+  userId: z.number(),
+  intent: z.literal(Intent.DISALLOW_SIGNUP),
+});
+
+type DisallowSignup = z.infer<typeof DisallowSignup>;
+
+let UpdateSettingSchema = z.object({
+  intent: z.enum([
+    Intent.UPDATE_SHOW_CATEGORY_RECS,
+    Intent.UPDATE_SHOW_DISCOVERY,
+    Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME,
+  ]),
+  value: z
+    .enum(["0", "1", "true", "false"])
+    .catch("false")
+    .transform((value) => value == "true" || value == "1"),
+});
+
+type UpdateSettingSchema = z.infer<typeof UpdateSettingSchema>;
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   if (user.roleId !== UserRoles.ADMIN) {
-    console.log(user.roleId, UserRoles.ADMIN);
     return redirect(`/explore?reason=${RefusalReason.NOT_ALLOWED}`);
   }
   let settings = await prisma.settings.findFirstOrThrow();
+  let gamesLocked = await prisma.gameStats.findMany({
+    where: {
+      game: {
+        userId: {
+          not: null,
+        },
+      },
+    },
+    include: {
+      game: {
+        include: {
+          borrowedBy: true,
+          system: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
+    },
+  });
+  let users = await prisma.user.findMany({
+    where: {
+      id: {
+        not: user.id,
+      },
+    },
+  });
 
-  return settings;
+  return { settings, users, gamesLocked };
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-  let submission = await processFolderSubmission(request);
-
+async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
   if (submission.status !== "success") {
     return json(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
@@ -156,8 +165,6 @@ export async function action({ request }: ActionFunctionArgs) {
     getIGDBAccessToken(),
     getFilesRecursively(romFolderLocation),
   ]);
-
-  console.log(accessToken);
 
   let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
     (system) => system.extension
@@ -190,20 +197,147 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 }
 
+async function allowSignup(submission: Submission<AllowSignup>) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { userId } = submission.value;
+  return await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      signupVerifiedAt: new Date(),
+    },
+  });
+}
+
+async function disallowSignup(submission: Submission<DisallowSignup>) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+  let { userId } = submission.value;
+
+  return await prisma.user.delete({
+    where: {
+      id: userId,
+    },
+    include: {
+      sessions: true,
+      gameStats: true,
+      Game: true,
+    },
+  });
+}
+
+async function updateSetting(submission: Submission<UpdateSettingSchema>) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { intent, value } = submission.value;
+
+  let updateData: Partial<{
+    showCategoryRecs: boolean;
+    showDiscovery: boolean;
+    spotlightIncompleteGame: boolean;
+  }> = {};
+
+  switch (intent) {
+    case Intent.UPDATE_SHOW_CATEGORY_RECS:
+      updateData.showCategoryRecs = value;
+      break;
+    case Intent.UPDATE_SHOW_DISCOVERY:
+      updateData.showDiscovery = value;
+      break;
+    case Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME:
+      updateData.spotlightIncompleteGame = value;
+      break;
+  }
+
+  let settings = await prisma.settings.update({
+    where: { id: 1 },
+    data: updateData,
+  });
+
+  return json({ success: true });
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  await requireUser(request);
+  let formData = await request.formData();
+  let intent = formData.get("intent");
+
+  switch (intent) {
+    case Intent.SET_ROM_FOLDER_LOCATION: {
+      let submission = parseWithZod(formData, {
+        schema: FolderScanSchema,
+      });
+      return await scrapeROMFolder(submission);
+    }
+    case Intent.ALLOW_SIGNUP: {
+      let submission = parseWithZod(formData, {
+        schema: AllowSignup,
+      });
+      return await allowSignup(submission);
+    }
+    case Intent.DISALLOW_SIGNUP: {
+      let submission = parseWithZod(formData, {
+        schema: DisallowSignup,
+      });
+      return await disallowSignup(submission);
+    }
+    case Intent.UPDATE_SHOW_CATEGORY_RECS:
+    case Intent.UPDATE_SHOW_DISCOVERY:
+    case Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME: {
+      let submission = parseWithZod(formData, {
+        schema: UpdateSettingSchema,
+      });
+      return await updateSetting(submission);
+    }
+    default: {
+      throw new Error("Invalid intent");
+    }
+  }
+}
+
 export default function SettingsPage() {
-  let { id, romFolderLocation } = useLoaderData<typeof loader>();
+  let {
+    settings: {
+      id,
+      romFolderLocation,
+      showCategoryRecs,
+      showDiscovery,
+      spotlightIncompleteGame,
+    },
+    users,
+    gamesLocked,
+  } = useLoaderData<typeof loader>();
 
   let [form, fields] = useForm({
-    constraint: getZodConstraint(ScanFolderSchema),
+    constraint: getZodConstraint(FolderScanSchema),
     shouldValidate: "onBlur",
     onValidate({ formData }) {
-      return parseWithZod(formData, { schema: ScanFolderSchema });
+      return parseWithZod(formData, { schema: FolderScanSchema });
     },
     defaultValue: {
       id,
       romFolderLocation,
     },
   });
+
+  let fetcher = useFetcher();
+
+  const handleCheckboxChange = (intent: Intent, checked: boolean) => {
+    fetcher.submit({ intent, value: checked.toString() }, { method: "POST" });
+  };
 
   return (
     <div className="min-h-screen p-8 bg-muted/15">
@@ -242,8 +376,8 @@ export default function SettingsPage() {
                   </p>
                   <p className="flex items-center gap-2 pt-1 text-sm">
                     <FileWarning className="text-amber-500" size={18} /> If your
-                    roms were renamed since last scrape, then they will be
-                    re-added to your local database and you will see duplicate
+                    ROMs were renamed since last scrape, then they will be
+                    re-added to your local database and you will see duplicates!
                   </p>
                 </div>
               </Form>
@@ -264,33 +398,62 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>User Management</CardTitle>
               <CardDescription>
-                Manage users and create new accounts for friends
+                Allow and disallow signups, and delete users off of your server.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button>Create User</Button>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Signup Date</TableHead>
+                    <TableHead>Allow Date</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell>{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.signupDate}</TableCell>
                       <TableCell>
-                        <div className="flex space-x-2 justify-center">
-                          <Button size="sm">Approve</Button>
-                          <Button size="sm" variant="destructive">
-                            Decline
-                          </Button>
-                        </div>
+                        {new Date(user.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {user.signupVerifiedAt &&
+                          new Date(user.signupVerifiedAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Form method="POST">
+                          <Input
+                            name="userId"
+                            id="userId"
+                            type="hidden"
+                            value={user.id}
+                          />
+                          <div className="flex space-x-2 justify-center">
+                            {user.signupVerifiedAt == null && (
+                              <Button
+                                name="intent"
+                                value={Intent.ALLOW_SIGNUP}
+                                size="sm"
+                                type="submit"
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            <Button
+                              name="intent"
+                              value={Intent.DISALLOW_SIGNUP}
+                              size="sm"
+                              variant="destructive"
+                              type="submit"
+                            >
+                              {user.signupVerifiedAt == null
+                                ? "Decline"
+                                : "Delete"}
+                            </Button>
+                          </div>
+                        </Form>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -307,30 +470,36 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Game Title</TableHead>
-                    <TableHead>Borrower</TableHead>
-                    <TableHead>Borrow Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockBorrowedGames.map((game) => (
-                    <TableRow key={game.id}>
-                      <TableCell>{game.title}</TableCell>
-                      <TableCell>{game.borrower}</TableCell>
-                      <TableCell>{game.borrowDate}</TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="destructive">
-                          Revoke
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {gamesLocked.length > 0 ? (
+                gamesLocked.map((gameStats) => (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Game Title</TableHead>
+                        <TableHead>Borrower</TableHead>
+                        <TableHead>Borrow Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow key={gameStats.id}>
+                        <TableCell>{gameStats.game.title}</TableCell>
+                        <TableCell>{gameStats.user.email}</TableCell>
+                        <TableCell>{gameStats.lastPlayedAt}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="destructive">
+                            Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ))
+              ) : (
+                <p className="text-center my-4">
+                  No borrow vouchers have been given out
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -343,18 +512,45 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Checkbox id="showRecommendations" checked />
+                <Checkbox
+                  id="showRecommendations"
+                  defaultChecked={showCategoryRecs}
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      Intent.UPDATE_SHOW_CATEGORY_RECS,
+                      checked as boolean
+                    )
+                  }
+                />
                 <Label htmlFor="showRecommendations">
                   Show Category Recommendation (e.g Adventure, Role Playing
                   Games) Lists
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="showDiscoveryQueue" checked />
+                <Checkbox
+                  id="showDiscoveryQueue"
+                  defaultChecked={showDiscovery}
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      Intent.UPDATE_SHOW_DISCOVERY,
+                      checked as boolean
+                    )
+                  }
+                />
                 <Label htmlFor="showDiscoveryQueue">Show Discovery Queue</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="showIncompleteGameData" checked />
+                <Checkbox
+                  id="showIncompleteGameData"
+                  defaultChecked={spotlightIncompleteGame}
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME,
+                      checked as boolean
+                    )
+                  }
+                />
                 <Label htmlFor="showIncompleteGameData">
                   Spotlight games that have incomplete information (like missing
                   art, summaries, etc.)

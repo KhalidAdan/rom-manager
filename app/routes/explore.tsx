@@ -1,11 +1,8 @@
 // app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
 import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
+import { CategoryCards } from "@/components/organisms/category-cards";
 import RomManager, { RomType } from "@/components/organisms/rom-manager";
-import {
-  TopGenresCarousel,
-  TopGenresCarouselType,
-} from "@/components/organisms/top-genres-carousels";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
-import { cn, shuffle } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
@@ -29,6 +26,7 @@ async function getLastPlayedGame() {
     select: {
       game: {
         select: {
+          id: true,
           title: true,
           summary: true,
           backgroundImage: true,
@@ -48,53 +46,24 @@ async function getLastPlayedGame() {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
-
   try {
-    let games = await prisma.game.findMany({
-      select: {
-        id: true,
-        title: true,
-        coverArt: true,
-        system: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-
-    let [randomGame] = await prisma.$queryRawTyped(getRandomGame());
-
-    let topFiveGameGenres = await prisma.$queryRawTyped(getTopGenres(5));
-    let searchGenres = topFiveGameGenres.map((genre) => genre.name);
-
-    let genres = await prisma.genre.findMany({
-      select: {
-        name: true,
-        gameGenres: {
-          select: {
-            game: {
-              select: {
-                id: true,
-                title: true,
-                coverArt: true,
-                system: {
-                  select: {
-                    title: true,
-                  },
-                },
-              },
+    let [settings, games, [randomGame], topFiveGameGenres] = await Promise.all([
+      await prisma.settings.findFirstOrThrow(),
+      await prisma.game.findMany({
+        select: {
+          id: true,
+          title: true,
+          coverArt: true,
+          system: {
+            select: {
+              title: true,
             },
           },
         },
-      },
-      where: {
-        name: {
-          in: searchGenres,
-        },
-      },
-      take: 3,
-    });
+      }),
+      await prisma.$queryRawTyped(getRandomGame()),
+      await prisma.$queryRawTyped(getTopGenres(5)),
+    ]);
 
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
       await getLastPlayedGame();
@@ -102,6 +71,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     if (lastPlayedGame == null) {
       lastPlayedGame = {
         game: {
+          id: randomGame.id,
           title: randomGame.title,
           summary: randomGame.summary,
           backgroundImage: randomGame.backgroundImage,
@@ -122,23 +92,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
               : "",
           };
         }),
-        genres: shuffle(
-          genres.map((genre) => ({
-            name: genre.name,
-            gameGenres: genre.gameGenres.map((gg) => ({
-              title: gg.game.title,
-              coverArt: gg.game.coverArt
-                ? Buffer.from(gg.game.coverArt).toString("base64")
-                : undefined,
-              system: {
-                title: gg.game.system.title,
-              },
-            })),
-          }))
-        ),
         lastPlayedGame: lastPlayedGame
           ? {
-              randomGame: randomGame,
+              id: lastPlayedGame.game.id,
               title: lastPlayedGame.game.title,
               summary: lastPlayedGame.game.summary,
               system: lastPlayedGame.game.system.title,
@@ -147,11 +103,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
                     "base64"
                   )
                 : undefined,
-              random: true,
             }
           : undefined,
-
         randomGame,
+        settings,
       },
       {
         headers: {
@@ -171,7 +126,12 @@ export default function Explore() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred</div>;
 
-  let { games, genres, lastPlayedGame, randomGame } = data;
+  let {
+    games,
+    lastPlayedGame,
+    randomGame,
+    settings: { showCategoryRecs, showDiscovery, spotlightIncompleteGame },
+  } = data;
 
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
@@ -205,7 +165,7 @@ export default function Explore() {
                   </div>
                   <DialogFooter>
                     <Link
-                      to={`/play/${randomGame.system_title}/${randomGame.title}`}
+                      to={`/play/${randomGame.system_title}/${randomGame.id}`}
                       className={cn(
                         buttonVariants({ variant: "default", size: "lg" }),
                         "border-2 border-foreground"
@@ -238,11 +198,27 @@ export default function Explore() {
           </div>
         </div>
       </div>
-      <div className="scrollbar-hidden">
-        {lastPlayedGame && <ContinuePlaying lastPlayedGame={lastPlayedGame} />}
-        <RomManager games={games as RomType[]} />
-        <DiscoveryQueue />
-        <TopGenresCarousel genres={genres as TopGenresCarouselType} />
+      <div className="space-y-8">
+        <ContinuePlaying
+          lastPlayedGame={lastPlayedGame ?? (randomGame as any)}
+          random={lastPlayedGame == undefined}
+        />
+        <RomManager
+          games={games.filter((rom) => rom.system.title === "GBA") as RomType[]}
+          systemTitle={"GBA"}
+        />
+        {showCategoryRecs && <CategoryCards />}
+        <RomManager
+          games={
+            games.filter((rom) => rom.system.title === "SNES") as RomType[]
+          }
+          systemTitle={"SNES"}
+        />
+        {showDiscovery && <DiscoveryQueue />}
+        <RomManager
+          games={games.filter((rom) => rom.system.title === "GBC") as RomType[]}
+          systemTitle={"GBC"}
+        />
       </div>
       <div className="max-w-7xl mx-auto py-14">
         <Link to="/settings">Settings</Link>

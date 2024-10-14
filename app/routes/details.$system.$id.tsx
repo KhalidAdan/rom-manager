@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
-import { Intent as PlayIntent } from "@/routes/play.$system.$title";
+import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
   getFormProps,
   getInputProps,
@@ -141,23 +141,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 
   if (!game) throw new Error("Where the game at dog?");
-  return json(
-    {
-      ...game,
-      coverArt: game.coverArt
-        ? Buffer.from(game.coverArt).toString("base64")
-        : null,
-      backgroundImage: game.backgroundImage
-        ? Buffer.from(game.backgroundImage).toString("base64")
-        : null,
-      user,
-    },
-    {
-      headers: {
-        "Cache-Control": "max-age=3600, public",
-      },
-    }
-  );
+  return json({
+    ...game,
+    coverArt: game.coverArt
+      ? Buffer.from(game.coverArt).toString("base64")
+      : null,
+    backgroundImage: game.backgroundImage
+      ? Buffer.from(game.backgroundImage).toString("base64")
+      : null,
+    user,
+  });
 }
 
 async function updateMetadata(submission: Submission<UpdateMetadata>) {
@@ -340,7 +333,7 @@ export default function RomDetails() {
   let fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 z-0 h-full w-full">
         <img
@@ -367,7 +360,6 @@ export default function RomDetails() {
           </Button>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
-          {/* Cover Art */}
           <div className="flex-shrink-0">
             <img
               src={
@@ -380,7 +372,6 @@ export default function RomDetails() {
             />
           </div>
 
-          {/* Details */}
           <div className="flex flex-col flex-1 justify-center">
             {borrowedBy && (
               <div className="mb-4">
@@ -397,7 +388,7 @@ export default function RomDetails() {
                   {user.roleId < borrowedBy.roleId && (
                     <Form
                       method="POST"
-                      action={`/play/${system.title}/${title}`}
+                      action={`/play/${system.title}/${id}`}
                       navigate={false}
                       className="pt-2"
                     >
@@ -441,7 +432,6 @@ export default function RomDetails() {
                       done.
                     </DialogDescription>
                   </DialogHeader>
-                  {/* Form */}
                   <Form
                     {...getFormProps(form)}
                     method="POST"
@@ -521,7 +511,7 @@ export default function RomDetails() {
               {!borrowedBy ? (
                 <Link
                   preventScrollReset
-                  to={`/play/${system.title}/${title}`}
+                  to={`/play/${system.title}/${id}`}
                   className={buttonVariants({ variant: "default" })}
                   onClick={() => {
                     fetcher.submit(

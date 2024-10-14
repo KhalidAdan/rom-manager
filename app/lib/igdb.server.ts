@@ -141,8 +141,8 @@ limit 1;`.trim(),
       backgroundImage: undefined,
     };
   }
-  let game: Game = result.data;
 
+  let game: Game = result.data;
   let coverImage: Blob | undefined;
   let backgroundImage: Blob | undefined;
 
@@ -154,6 +154,7 @@ limit 1;`.trim(),
       coverImage = await coverResponse.blob();
     }
   }
+
   if (game.artworks && game.artworks.length > 0) {
     const artworkResponse = await fetch(
       "http:" + game.artworks[0].url.replace("t_thumb", "t_1080p")
@@ -233,6 +234,7 @@ export async function scrapeRoms(
           },
         });
         await sleep(300); // IGDB rate limit
+
         console.log(`${title} completed processing and inserted`);
       }
     },
