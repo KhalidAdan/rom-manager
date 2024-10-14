@@ -47,7 +47,6 @@ export let links: LinksFunction = () => [
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let url = new URL(request.url);
-  console.log("path", url.pathname);
   let isAuthRoute = [
     "/authenticate",
     "/auth",

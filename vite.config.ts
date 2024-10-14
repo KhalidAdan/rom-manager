@@ -1,4 +1,5 @@
 import { vitePlugin as remix } from "@remix-run/dev";
+import path from "path";
 import { flatRoutes } from "remix-flat-routes";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -6,6 +7,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   server: {
     host: true,
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./app"),
+    },
   },
   plugins: [
     remix({

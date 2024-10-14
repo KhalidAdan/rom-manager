@@ -1,4 +1,5 @@
 SELECT 
+  gn.id,
   count(gn.id) as count, 
   gn.name 
 FROM 

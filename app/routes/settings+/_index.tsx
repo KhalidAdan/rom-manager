@@ -540,22 +540,6 @@ export default function SettingsPage() {
                 />
                 <Label htmlFor="showDiscoveryQueue">Show Discovery Queue</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="showIncompleteGameData"
-                  defaultChecked={spotlightIncompleteGame}
-                  onCheckedChange={(checked) =>
-                    handleCheckboxChange(
-                      Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME,
-                      checked as boolean
-                    )
-                  }
-                />
-                <Label htmlFor="showIncompleteGameData">
-                  Spotlight games that have incomplete information (like missing
-                  art, summaries, etc.)
-                </Label>
-              </div>
             </CardContent>
           </Card>
         </div>

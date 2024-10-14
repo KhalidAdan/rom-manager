@@ -45,9 +45,9 @@ async function getLastPlayedGame() {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await requireUser(request);
+  let user = await requireUser(request);
   try {
-    let [settings, games, [randomGame], topFiveGameGenres] = await Promise.all([
+    let [settings, games, [randomGame], topFiveGenres] = await Promise.all([
       await prisma.settings.findFirstOrThrow(),
       await prisma.game.findMany({
         select: {
@@ -64,6 +64,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
       await prisma.$queryRawTyped(getRandomGame()),
       await prisma.$queryRawTyped(getTopGenres(5)),
     ]);
+
+    let discoveryQueue = await prisma.game.findMany({
+      where: {
+        OR: [
+          {
+            gameGenres: {
+              some: {
+                genreId: {
+                  in: topFiveGenres.map((genre) => genre.id),
+                },
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        coverArt: true,
+        // TODO: scrape rating from IGDB
+      },
+      take: 3,
+    });
 
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
       await getLastPlayedGame();
@@ -107,6 +131,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           : undefined,
         randomGame,
         settings,
+        discoveryQueue,
       },
       {
         headers: {
@@ -115,23 +140,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     );
   } catch (error: unknown) {
-    console.error("Error reading directory:", error);
+    console.error(error);
     return {
-      error: "Failed to read directory",
+      error: `${error}`,
     };
   }
 }
 
 export default function Explore() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred</div>;
+  if ("error" in data) return <div>Error occurred, {data.error}</div>;
 
-  let {
-    games,
-    lastPlayedGame,
-    randomGame,
-    settings: { showCategoryRecs, showDiscovery, spotlightIncompleteGame },
-  } = data;
+  let { games, lastPlayedGame, randomGame, settings, discoveryQueue } = data;
 
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
@@ -207,14 +227,14 @@ export default function Explore() {
           games={games.filter((rom) => rom.system.title === "GBA") as RomType[]}
           systemTitle={"GBA"}
         />
-        {showCategoryRecs && <CategoryCards />}
+        {settings.showCategoryRecs && <CategoryCards />}
         <RomManager
           games={
             games.filter((rom) => rom.system.title === "SNES") as RomType[]
           }
           systemTitle={"SNES"}
         />
-        {showDiscovery && <DiscoveryQueue />}
+        {settings.showDiscovery && <DiscoveryQueue />}
         <RomManager
           games={games.filter((rom) => rom.system.title === "GBC") as RomType[]}
           systemTitle={"GBC"}

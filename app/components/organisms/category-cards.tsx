@@ -91,8 +91,8 @@ export function CategoryCards() {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious />
-        <CarouselNext />
+        <CarouselPrevious variant="ghost" className="h-12 w-12 rounded-none" />
+        <CarouselNext variant="ghost" className="h-12 w-12 rounded-none" />
       </Carousel>
     </div>
   );

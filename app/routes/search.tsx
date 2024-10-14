@@ -124,9 +124,9 @@ export default function Search() {
       <div className="relative z-10 p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <header className="flex justify-between mb-14">
-            <h2 className="text-4xl font-light tracking-tight font-mono italic">
+            <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
               {"{"} ROMSTHO {"}"}
-            </h2>
+            </h1>
             <Link
               to="/explore"
               className={cn(
