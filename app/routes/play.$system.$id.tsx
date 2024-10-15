@@ -1,6 +1,5 @@
 import { useInitializeEmulator } from "@/hooks/use-initialize-emulator";
 import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
-import { useReactiveGameLock } from "@/hooks/use-reactive-game-lock";
 import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { DATA_DIR } from "@/lib/const";
@@ -143,22 +142,23 @@ export default function Play() {
 
   let cleanupEmulator = useCallback(() => {
     if (window.EJS_emulator) {
-      console.log("Cleaning up emulator");
       window.EJS_emulator.callEvent("exit");
+      fetcher.submit(
+        { intent: data.clientIntent, gameId: data.id },
+        { method: "POST" }
+      );
     }
   }, []);
 
-  useReactiveGameLock(data.id);
+  // useReactiveGameLock(data.id);
 
   useInitializeEmulator({
     emulatorInitialized,
     data,
-    cleanupEmulator,
-    fetcher,
+    cleanUpFn: cleanupEmulator,
   });
 
   useBeforeUnload((event: BeforeUnloadEvent) => {
-    console.log("Handling page unload");
     cleanupEmulator();
     event.preventDefault();
     return (event.returnValue =

@@ -54,10 +54,11 @@ model Game {
   completedAt     DateTime? // track when you beat or are done with a game
   created_at      DateTime  @default(now())
   updated_at      DateTime? @default(now())
+  rating          Int?
 
   // relations
   systemId   Int          @map("system_id")
-  system     System       @relation(fields: [systemId], references: [id])
+  system     System       @relation(fields: [systemId], references: [id], onDelete: Cascade)
   GameStats  GameStats[]
   gameGenres GameGenres[]
 
@@ -71,15 +72,16 @@ model GameGenres {
   id      Int   @id @default(autoincrement())
   gameId  Int
   genreId Int
-  game    Game  @relation(fields: [gameId], references: [id])
-  genre   Genre @relation(fields: [genreId], references: [id])
+  game    Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
 
   @@map("game_genre")
 }
 
 model Genre {
-  id         Int          @id @default(autoincrement())
-  name       String       @unique
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
   // relations
   gameGenres GameGenres[]
 
@@ -121,7 +123,7 @@ model GameStats {
   userId        Int
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   gameId        Int
-  game          Game     @relation(fields: [gameId], references: [id])
+  game          Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   Role          Role?    @relation(fields: [roleId], references: [id])
   roleId        Int?
 

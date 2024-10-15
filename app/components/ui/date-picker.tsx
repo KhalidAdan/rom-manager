@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-export function DatePicker({ initialDate }: { initialDate?: number }) {
-  const [date, setDate] = React.useState<Date | undefined>(
-    initialDate ? new Date(initialDate * 1000) : undefined
-  );
-
+export function DatePicker({
+  date,
+  setDate,
+}: {
+  date?: Date;
+  setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
+}) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -35,6 +37,7 @@ export function DatePicker({ initialDate }: { initialDate?: number }) {
           mode="single"
           selected={date}
           onSelect={setDate}
+          defaultMonth={date}
           initialFocus
         />
       </PopoverContent>

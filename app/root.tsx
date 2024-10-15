@@ -57,7 +57,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (isAuthRoute) return null;
 
   let user = await requireUser(request);
-  console.log(user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN);
   if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
     return redirect("/needs-permission");
   }

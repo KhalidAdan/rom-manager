@@ -2,8 +2,11 @@ import { promises as fs } from "fs";
 import { existsSync } from "node:fs";
 import path from "path";
 
-enum Intent {
-  SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
+export function bufferToStringIfExists(
+  file: Buffer | null
+): undefined | string {
+  if (!file) return undefined;
+  return file ? Buffer.from(file).toString("base64") : undefined;
 }
 
 export async function validateFolder(romFolderLocation: string) {

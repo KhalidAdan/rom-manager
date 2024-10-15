@@ -11,7 +11,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
   await authenticator.isAuthenticated(request, {
     successRedirect:
-      settings && settings.onboardingComplete ? "/explore" : "/onboarding",
+      settings && settings.onboardingComplete !== null
+        ? "/explore"
+        : "/onboarding",
   });
   return null;
 }

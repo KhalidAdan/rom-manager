@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -30,6 +30,7 @@ import {
 } from "@/lib/fs.server";
 import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
+import { cn } from "@/lib/utils";
 import {
   getFormProps,
   getInputProps,
@@ -43,7 +44,7 @@ import {
   LoaderFunctionArgs,
   redirect,
 } from "@remix-run/node";
-import { Form, useFetcher, useLoaderData } from "@remix-run/react";
+import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { FileWarning, Info } from "lucide-react";
 import { z } from "zod";
 
@@ -101,37 +102,40 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (user.roleId !== UserRoles.ADMIN) {
     return redirect(`/explore?reason=${RefusalReason.NOT_ALLOWED}`);
   }
-  let settings = await prisma.settings.findFirstOrThrow();
-  let gamesLocked = await prisma.gameStats.findMany({
-    where: {
-      game: {
-        userId: {
-          not: null,
+
+  let [settings, users, gamesLocked] = await Promise.all([
+    prisma.settings.findFirstOrThrow(),
+    prisma.user.findMany({
+      where: {
+        id: {
+          not: user.id,
         },
       },
-    },
-    include: {
-      game: {
-        include: {
-          borrowedBy: true,
-          system: true,
+    }),
+    prisma.gameStats.findMany({
+      where: {
+        game: {
+          userId: {
+            not: null,
+          },
         },
       },
-      user: {
-        select: {
-          id: true,
-          email: true,
+      include: {
+        game: {
+          include: {
+            borrowedBy: true,
+            system: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
         },
       },
-    },
-  });
-  let users = await prisma.user.findMany({
-    where: {
-      id: {
-        not: user.id,
-      },
-    },
-  });
+    }),
+  ]);
 
   return { settings, users, gamesLocked };
 }
@@ -262,7 +266,7 @@ async function updateSetting(submission: Submission<UpdateSettingSchema>) {
       break;
   }
 
-  let settings = await prisma.settings.update({
+  await prisma.settings.update({
     where: { id: 1 },
     data: updateData,
   });
@@ -341,6 +345,20 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen p-8 bg-muted/15">
+      <header className="max-w-6xl mx-auto flex justify-between mb-14">
+        <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
+          {"{"} ROMSTHO {"}"}
+        </h1>
+        <Link
+          to="/explore"
+          className={cn(
+            buttonVariants({ variant: "link" }),
+            "font-mono italic"
+          )}
+        >
+          Explore
+        </Link>
+      </header>
       <div className="max-w-6xl mx-auto space-y-8">
         <h1 className="text-3xl font-semibold">Settings</h1>
         <div className="grid gap-6">
@@ -402,63 +420,69 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Signup Date</TableHead>
-                    <TableHead>Allow Date</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        {user.signupVerifiedAt &&
-                          new Date(user.signupVerifiedAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Form method="POST">
-                          <Input
-                            name="userId"
-                            id="userId"
-                            type="hidden"
-                            value={user.id}
-                          />
-                          <div className="flex space-x-2 justify-center">
-                            {user.signupVerifiedAt == null && (
+              {users.length > 0 ? (
+                users.map((user) => (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Signup Date</TableHead>
+                        <TableHead>Allow Date</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow key={user.id}>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {user.signupVerifiedAt &&
+                            new Date(user.signupVerifiedAt).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Form method="POST">
+                            <Input
+                              name="userId"
+                              id="userId"
+                              type="hidden"
+                              value={user.id}
+                            />
+                            <div className="flex space-x-2 justify-center">
+                              {user.signupVerifiedAt == null && (
+                                <Button
+                                  name="intent"
+                                  value={Intent.ALLOW_SIGNUP}
+                                  size="sm"
+                                  type="submit"
+                                >
+                                  Approve
+                                </Button>
+                              )}
                               <Button
                                 name="intent"
-                                value={Intent.ALLOW_SIGNUP}
+                                value={Intent.DISALLOW_SIGNUP}
                                 size="sm"
+                                variant="destructive"
                                 type="submit"
                               >
-                                Approve
+                                {user.signupVerifiedAt == null
+                                  ? "Decline"
+                                  : "Delete"}
                               </Button>
-                            )}
-                            <Button
-                              name="intent"
-                              value={Intent.DISALLOW_SIGNUP}
-                              size="sm"
-                              variant="destructive"
-                              type="submit"
-                            >
-                              {user.signupVerifiedAt == null
-                                ? "Decline"
-                                : "Delete"}
-                            </Button>
-                          </div>
-                        </Form>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            </div>
+                          </Form>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ))
+              ) : (
+                <p className="text-center my-4">
+                  No users yet, invite some people to sign up!
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -539,6 +563,22 @@ export default function SettingsPage() {
                   }
                 />
                 <Label htmlFor="showDiscoveryQueue">Show Discovery Queue</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="showIncompleteGameData"
+                  checked={spotlightIncompleteGame}
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      Intent.UPDATE_SPOTLIGHT_INCOMPLETE_GAME,
+                      checked as boolean
+                    )
+                  }
+                />
+                <Label htmlFor="showIncompleteGameData">
+                  Spotlight games that have incomplete information (like missing
+                  art, summaries, etc.)
+                </Label>
               </div>
             </CardContent>
           </Card>

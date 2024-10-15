@@ -1,5 +1,4 @@
 import { DATA_DIR } from "@/lib/const";
-import { FetcherWithComponents } from "@remix-run/react";
 import { MutableRefObject, useEffect } from "react";
 
 interface EmulatorConfig {
@@ -16,16 +15,14 @@ interface EmulatorData {
 
 interface UseInitializeEmulatorProps {
   data: EmulatorData;
-  cleanupEmulator: () => void;
-  fetcher: FetcherWithComponents<unknown>;
+  cleanUpFn: () => void;
   emulatorInitialized: MutableRefObject<boolean>;
 }
 
 export function useInitializeEmulator({
   emulatorInitialized,
   data,
-  cleanupEmulator,
-  fetcher,
+  cleanUpFn,
 }: UseInitializeEmulatorProps) {
   useEffect(() => {
     if (emulatorInitialized.current) return;
@@ -49,16 +46,12 @@ export function useInitializeEmulator({
         emulatorInitialized.current = true;
 
         const handlePopState = (_event: PopStateEvent) => {
-          cleanupEmulator();
-          fetcher.submit(
-            { intent: data.clientIntent, gameId: data.id },
-            { method: "POST" }
-          );
+          cleanUpFn();
         };
         window.addEventListener("popstate", handlePopState);
 
         return () => {
-          cleanupEmulator();
+          cleanUpFn();
           URL.revokeObjectURL(romURL);
           document.body.removeChild(script);
           window.removeEventListener("popstate", handlePopState);

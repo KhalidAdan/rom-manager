@@ -48,6 +48,7 @@ let Game = z.object({
   name: z.string(),
   platforms: z.array(Platforms).optional(),
   summary: z.string().optional(),
+  total_rating: z.number().optional(),
 });
 
 type Game = z.infer<typeof Game>;
@@ -56,6 +57,7 @@ let GameMetaData = Game.pick({
   id: true,
   genres: true,
   summary: true,
+  total_rating: true,
 }).extend({
   title: z.string(),
   releaseDate: z.number().optional(),
@@ -168,6 +170,7 @@ limit 1;`.trim(),
     id: game.id ?? undefined,
     title: game.name ?? undefined,
     summary: game.summary ?? undefined,
+    total_rating: game.total_rating ?? undefined,
     releaseDate: game.first_release_date ?? undefined,
     genres: game.genres ?? undefined,
     coverArt: coverImage
@@ -202,6 +205,7 @@ export async function scrapeRoms(
             fileName,
             file: romBuffer,
             releaseDate: game.releaseDate ?? 0,
+            rating: game.total_rating,
             summary: game.summary ?? "",
             coverArt: game.coverArt,
             backgroundImage: game.backgroundImage,
@@ -233,7 +237,7 @@ export async function scrapeRoms(
             system: true,
           },
         });
-        await sleep(300); // IGDB rate limit
+        await sleep(250); // IGDB rate limit
 
         console.log(`${title} completed processing and inserted`);
       }

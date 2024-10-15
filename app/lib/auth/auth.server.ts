@@ -1,5 +1,9 @@
 // app/services/auth.server.ts
-import { getSession, sessionStore } from "@/lib/auth/session.server";
+import {
+  destroySession,
+  getSession,
+  sessionStore,
+} from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
 import { redirect } from "@remix-run/node";
 import { Authenticator } from "remix-auth";
@@ -25,10 +29,16 @@ export async function getUser(request: Request) {
   let authSession = await getSession(request.headers.get("Cookie"));
   let user = authSession.get("user");
 
-  if (!user?.id) return null;
+  if (!user?.id) {
+    let cookie = await destroySession(authSession);
+    return { user: null, cookie };
+  }
 
   let sessionId = authSession.get(sessionKeyPrefix);
-  if (!sessionId) return null;
+  if (!sessionId) {
+    let cookie = await destroySession(authSession);
+    return { user: null, cookie };
+  }
 
   let dbSession = await prisma.session.findUnique({
     select: {
@@ -37,14 +47,19 @@ export async function getUser(request: Request) {
     where: { id: sessionId, expires: { gt: new Date() } },
   });
 
-  if (!dbSession?.user) return null;
+  if (!dbSession?.user) {
+    let cookie = await destroySession(authSession);
+    return { user: null, cookie };
+  }
 
-  return dbSession.user;
+  return { user: dbSession.user, cookie: null };
 }
 
 export async function getUserId(request: Request) {
-  let user = await getUser(request);
-  if (user == null) return null;
+  let { user, cookie } = await getUser(request);
+  if (user == null) {
+    return null;
+  }
   return user.id;
 }
 
@@ -52,7 +67,7 @@ export async function requireUser(
   request: Request,
   { redirectTo }: { redirectTo?: string | null } = {}
 ) {
-  let user = await getUser(request);
+  let { user, cookie } = await getUser(request);
 
   if (!user) {
     let requestUrl = new URL(request.url);
@@ -68,7 +83,9 @@ export async function requireUser(
       .filter(Boolean)
       .join("?");
 
-    throw redirect(loginRedirect);
+    throw redirect(loginRedirect, {
+      headers: cookie ? { "Set-Cookie": cookie } : undefined,
+    });
   }
 
   return user;

@@ -1,6 +1,9 @@
+import { cn } from "@/lib/utils";
+import { Game, System } from "@prisma/client";
+import { Link } from "@remix-run/react";
 import { ChevronRight, Star } from "lucide-react";
 import { useState } from "react";
-import { Button } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import {
   Carousel,
@@ -18,59 +21,35 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 
-interface Game {
-  id: string;
-  title: string;
-  summary: string;
-  coverArt: string;
-  rating: number;
+interface DGame extends Game {
+  system: System;
 }
 
-const mockGames: Game[] = [
-  {
-    id: "1",
-    title: "Super Metroid",
-    summary:
-      "The third installment in the Metroid series, Super Metroid follows Samus Aran as she attempts to retrieve the last surviving Metroid from the Space Pirates.",
-    coverArt: "https://placehold.co/400x600",
-    rating: 4.8,
-  },
-  {
-    id: "2",
-    title: "Chrono Trigger",
-    summary:
-      "A role-playing video game that follows a group of adventurers who travel through time to prevent a global catastrophe.",
-    coverArt: "https://placehold.co/400x600",
-    rating: 4.9,
-  },
-  {
-    id: "3",
-    title: "Final Fantasy VI",
-    summary:
-      "Set in a fantasy world with technology resembling that of the Second Industrial Revolution, the game's story follows an expanding cast that includes fourteen permanent playable characters.",
-    coverArt: "https://placehold.co/400x600",
-    rating: 4.7,
-  },
-];
+const IGDB_RATIO = 20; // igdb is on a 100 scale
 
 function StarRating({ rating }: { rating: number }) {
+  let adjustedRating = rating / IGDB_RATIO;
   return (
     <div className="flex items-center mt-4">
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
           className={`w-5 h-5 ${
-            star <= rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+            star <= adjustedRating
+              ? "text-yellow-400 fill-yellow-400"
+              : "text-gray-300"
           }`}
         />
       ))}
-      <span className="ml-2 text-sm text-gray-600">{rating.toFixed(1)}</span>
+      <span className="ml-2 text-sm text-muted-foreground">
+        {adjustedRating.toFixed(1)}
+      </span>
     </div>
   );
 }
 
-export function DiscoveryQueue() {
-  const [open, setOpen] = useState(false);
+export function DiscoveryQueue({ games }: { games: DGame[] }) {
+  let [open, setOpen] = useState(false);
 
   return (
     <div className="w-full space-y-4 mt-12">
@@ -97,12 +76,16 @@ export function DiscoveryQueue() {
               </DialogHeader>
               <Carousel className="w-full mt-4" opts={{ loop: true }}>
                 <CarouselContent>
-                  {mockGames.map((game) => (
+                  {games.map((game) => (
                     <CarouselItem key={game.id}>
                       <div className="grid grid-cols-3">
-                        <div className="h-full border-2 border-neutral-700 shadow-lg shadow-neutral-500 dark:border-neutral-400 dark:shadow-neutral-600">
+                        <div className="h-full ">
                           <img
-                            src={game.coverArt}
+                            src={
+                              game.coverArt
+                                ? `data:image/jpeg;base64,${game.coverArt}`
+                                : "https://placehold.co/400x600"
+                            }
                             alt={game.title}
                             className="w-full h-full object-cover"
                           />
@@ -113,10 +96,15 @@ export function DiscoveryQueue() {
                               {game.title}
                             </h3>
                             <p>{game.summary}</p>
-                            <StarRating rating={game.rating} />
+                            {game.rating && <StarRating rating={game.rating} />}
                           </div>
                           <div className="flex space-x-4">
-                            <Button className="w-1/2">View Game</Button>
+                            <Link
+                              to={`/details/${game.system.title}/${game.id}`}
+                              className={cn(buttonVariants(), "w-1/2")}
+                            >
+                              View Game
+                            </Link>
                             <Button variant="outline" className="w-1/2">
                               Add to Favorites
                             </Button>

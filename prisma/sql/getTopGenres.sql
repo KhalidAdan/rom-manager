@@ -1,7 +1,9 @@
 SELECT 
   gn.id,
   count(gn.id) as count, 
-  gn.name 
+  gn.name,
+  g.title,
+  g.coverArt
 FROM 
   genres gn
 INNER JOIN 
@@ -10,6 +12,7 @@ INNER JOIN
   games g ON g.id = gg.gameId
 GROUP BY 
   gn.id
+HAVING 
+  count > 4
 ORDER BY 
-  count DESC
-LIMIT $1;
+  count DESC;

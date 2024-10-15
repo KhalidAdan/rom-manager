@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollBar } from "@/components/ui/scroll-area";
 import { requireUser } from "@/lib/auth/auth.server";
+import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import { Game, System } from "@prisma/client";
@@ -41,9 +42,7 @@ async function performSearch(query: string): Promise<
 
   return data.map((q) => ({
     ...q,
-    coverArt: q.coverArt
-      ? Buffer.from(q.coverArt).toString("base64")
-      : undefined,
+    coverArt: bufferToStringIfExists(q.coverArt),
   }));
 }
 
@@ -53,6 +52,7 @@ async function getTopFourGenres() {
 
   let suggestions = await prisma.genre.findMany({
     select: {
+      id: true,
       name: true,
       gameGenres: {
         select: {
@@ -72,10 +72,9 @@ async function getTopFourGenres() {
   });
 
   return suggestions.map((genre) => ({
+    id: genre.id,
     name: genre.name,
-    coverArt: genre.gameGenres[0].game.coverArt
-      ? Buffer.from(genre.gameGenres[0].game.coverArt).toString("base64")
-      : undefined,
+    coverArt: bufferToStringIfExists(genre.gameGenres[0].game.coverArt),
   }));
 }
 
@@ -153,11 +152,12 @@ export default function Search() {
           </search.Form>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
-            {initialData.suggestions.map((category, index) => (
+            {initialData.suggestions.map((genre, index) => (
               <SuggestionCard
                 key={index}
-                name={category.name}
-                image={category.coverArt}
+                id={genre.id}
+                name={genre.name}
+                image={genre.coverArt}
               />
             ))}
           </div>

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
+import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
@@ -67,7 +68,7 @@ let UpdateMetadata = z
     id: z.number(),
     intent: z.literal(Intent.UpdateMetadata),
     title: z.string(),
-    releaseDate: z.date().optional(),
+    releaseDate: z.number().optional(),
     coverArt: z
       .instanceof(File)
       .refine(
@@ -104,7 +105,6 @@ type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-
   let game = await prisma.game.findFirst({
     where: {
       id: Number(params.id),
@@ -141,14 +141,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 
   if (!game) throw new Error("Where the game at dog?");
+
+  if (game.borrowedBy && game.borrowedBy.id !== user.id) {
+    throw redirect(`/details/${game.system.title}/${game.id}`);
+  }
+
   return json({
     ...game,
-    coverArt: game.coverArt
-      ? Buffer.from(game.coverArt).toString("base64")
-      : null,
-    backgroundImage: game.backgroundImage
-      ? Buffer.from(game.backgroundImage).toString("base64")
-      : null,
+    coverArt: bufferToStringIfExists(game.coverArt),
+    backgroundImage: bufferToStringIfExists(game.backgroundImage),
     user,
   });
 }
@@ -246,7 +247,6 @@ async function deleteRom(submission: Submission<DeleteROM>) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  console.log("action invoked");
   let user = await requireUser(request);
   let contentType = request.headers.get("content-type");
   let formData: FormData;
@@ -271,7 +271,6 @@ export async function action({ request }: ActionFunctionArgs) {
       return await updateLastPlayed(submission, user.id);
     }
     case Intent.UpdateMetadata: {
-      console.log("update metadata!");
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
@@ -305,16 +304,12 @@ export default function RomDetails() {
     borrowedBy,
     user,
   } = useLoaderData<typeof loader>();
-  let [expensiveDate] = useState(() =>
+  let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
     // seconds to milliseconds, IGDB uses seconds
-    releaseDate
-      ? new Intl.DateTimeFormat("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }).format(new Date(releaseDate * 1000))
-      : undefined
-  );
+    let date = releaseDate ? new Date(releaseDate * 1000) : undefined;
+
+    return date;
+  });
   let navigate = useNavigate();
 
   let [form, fields] = useForm({
@@ -452,7 +447,16 @@ export default function RomDetails() {
                       <Label htmlFor={fields.releaseDate.id}>
                         Release Date
                       </Label>
-                      <DatePicker initialDate={releaseDate ?? undefined} />
+                      <Input
+                        {...getInputProps(fields.releaseDate, {
+                          type: "hidden",
+                        })}
+                        value={expensiveDate && expensiveDate.getTime()}
+                      />
+                      <DatePicker
+                        date={expensiveDate}
+                        setDate={setExpensiveDate}
+                      />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
@@ -493,7 +497,12 @@ export default function RomDetails() {
               </Dialog>
             </div>
             <p className="text-muted-foreground mb-4 text-lg">
-              {expensiveDate && expensiveDate}
+              {expensiveDate &&
+                new Intl.DateTimeFormat("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }).format(expensiveDate)}
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
               {gameGenres.map((gameGenre, i) => (

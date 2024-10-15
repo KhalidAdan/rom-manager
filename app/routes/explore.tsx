@@ -1,8 +1,8 @@
 // app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
 import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
-import { CategoryCards } from "@/components/organisms/category-cards";
-import RomManager, { RomType } from "@/components/organisms/rom-manager";
+import { GenreCards } from "@/components/molecules/genre-cards";
+import RomManager from "@/components/molecules/rom-manager";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
+import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
@@ -21,7 +22,23 @@ import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Intent } from "./details.$system.$id";
 
-async function getLastPlayedGame() {
+async function getLastPlayedGame(
+  userId: number,
+  filterIncompleteGame: boolean
+) {
+  let andFilter = [
+    ...(filterIncompleteGame
+      ? [
+          {
+            game: {
+              backgroundImage: {
+                not: null,
+              },
+            },
+          },
+        ]
+      : []),
+  ];
   return await prisma.gameStats.findFirst({
     select: {
       game: {
@@ -38,82 +55,68 @@ async function getLastPlayedGame() {
         },
       },
     },
+    where: {
+      AND: [
+        {
+          userId,
+        },
+        ...andFilter,
+      ],
+    },
     orderBy: {
       lastPlayedAt: "desc",
     },
   });
 }
 
+function getDiscoveryQueue(games: any[], topGenres: any[]) {
+  const topGenreIds = topGenres.map((genre) => genre.id);
+  const filteredGames = games.filter((game) =>
+    game.gameGenres.some((gg: any) => topGenreIds.includes(gg.genreId))
+  );
+  const shuffled = filteredGames.sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 3);
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
+  let settings = await prisma.settings.findFirstOrThrow();
   try {
-    let [settings, games, [randomGame], topFiveGenres] = await Promise.all([
-      await prisma.settings.findFirstOrThrow(),
-      await prisma.game.findMany({
+    let [games, [randomGame], genres] = await Promise.all([
+      prisma.game.findMany({
         select: {
           id: true,
           title: true,
           coverArt: true,
+          rating: true,
+          summary: true,
           system: {
             select: {
               title: true,
             },
           },
-        },
-      }),
-      await prisma.$queryRawTyped(getRandomGame()),
-      await prisma.$queryRawTyped(getTopGenres(5)),
-    ]);
-
-    let discoveryQueue = await prisma.game.findMany({
-      where: {
-        OR: [
-          {
-            gameGenres: {
-              some: {
-                genreId: {
-                  in: topFiveGenres.map((genre) => genre.id),
-                },
-              },
+          gameGenres: {
+            select: {
+              genreId: true,
             },
           },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        summary: true,
-        coverArt: true,
-        // TODO: scrape rating from IGDB
-      },
-      take: 3,
-    });
+        },
+      }),
+      prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
+      prisma.$queryRawTyped(getTopGenres()),
+    ]);
+    let topFiveGenres = genres.slice(0, 5);
+    let discoveryQueue = getDiscoveryQueue(games, topFiveGenres);
 
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
-      await getLastPlayedGame();
-
-    if (lastPlayedGame == null) {
-      lastPlayedGame = {
-        game: {
-          id: randomGame.id,
-          title: randomGame.title,
-          summary: randomGame.summary,
-          backgroundImage: randomGame.backgroundImage,
-          system: {
-            title: randomGame.system_title,
-          },
-        },
-      };
-    }
+      await getLastPlayedGame(user.id, settings.spotlightIncompleteGame);
 
     return json(
       {
         games: games.map((game) => {
           return {
             ...game,
-            coverArt: game.coverArt
-              ? Buffer.from(game.coverArt).toString("base64")
-              : "",
+            coverArt: bufferToStringIfExists(game.coverArt),
           };
         }),
         lastPlayedGame: lastPlayedGame
@@ -122,20 +125,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
               title: lastPlayedGame.game.title,
               summary: lastPlayedGame.game.summary,
               system: lastPlayedGame.game.system.title,
-              backgroundImage: lastPlayedGame.game.backgroundImage
-                ? Buffer.from(lastPlayedGame.game.backgroundImage).toString(
-                    "base64"
-                  )
-                : undefined,
+              backgroundImage: bufferToStringIfExists(
+                lastPlayedGame.game.backgroundImage
+              ),
             }
           : undefined,
-        randomGame,
+        randomGame: {
+          ...randomGame,
+          backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
+        },
         settings,
-        discoveryQueue,
+        discoveryQueue: discoveryQueue.map((d) => ({
+          ...d,
+          coverArt: bufferToStringIfExists(d.coverArt),
+        })),
+        genres: genres.map((genre) => ({
+          ...genre,
+          count: Number(genre.count), // can't serialize big ints?
+          coverArt: bufferToStringIfExists(genre.coverArt),
+        })),
       },
       {
         headers: {
-          "Cache-Control": "max-age=3600, public",
+          "Cache-Control": "max-age=3600; public",
         },
       }
     );
@@ -151,8 +163,8 @@ export default function Explore() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred, {data.error}</div>;
 
-  let { games, lastPlayedGame, randomGame, settings, discoveryQueue } = data;
-
+  let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
+    data;
   const fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
@@ -185,7 +197,7 @@ export default function Explore() {
                   </div>
                   <DialogFooter>
                     <Link
-                      to={`/play/${randomGame.system_title}/${randomGame.id}`}
+                      to={`/play/${randomGame.system}/${randomGame.id}`}
                       className={cn(
                         buttonVariants({ variant: "default", size: "lg" }),
                         "border-2 border-foreground"
@@ -224,19 +236,19 @@ export default function Explore() {
           random={lastPlayedGame == undefined}
         />
         <RomManager
-          games={games.filter((rom) => rom.system.title === "GBA") as RomType[]}
+          games={games.filter((rom) => rom.system.title === "GBA") as any}
           systemTitle={"GBA"}
         />
-        {settings.showCategoryRecs && <CategoryCards />}
+        {settings.showCategoryRecs && <GenreCards genres={genres as any} />}
         <RomManager
-          games={
-            games.filter((rom) => rom.system.title === "SNES") as RomType[]
-          }
+          games={games.filter((rom) => rom.system.title === "SNES") as any}
           systemTitle={"SNES"}
         />
-        {settings.showDiscovery && <DiscoveryQueue />}
+        {settings.showDiscovery && (
+          <DiscoveryQueue games={discoveryQueue as any} />
+        )}
         <RomManager
-          games={games.filter((rom) => rom.system.title === "GBC") as RomType[]}
+          games={games.filter((rom) => rom.system.title === "GBC") as any}
           systemTitle={"GBC"}
         />
       </div>

@@ -14,7 +14,6 @@ export async function loader() {
 
 export async function action({ request, params, context }: ActionFunctionArgs) {
   let providerName = Provider.parse(params.provider);
-  console.log(providerName);
   try {
     let user = await authenticator.authenticate(providerName, request);
 
