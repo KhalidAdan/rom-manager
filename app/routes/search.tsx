@@ -47,8 +47,8 @@ async function performSearch(query: string): Promise<
 }
 
 async function getTopFourGenres() {
-  let topFiveGameGenres = await prisma.$queryRawTyped(getTopGenres(4));
-  let genres = topFiveGameGenres.map((genre) => genre.name);
+  let topFourGameGenres = await prisma.$queryRawTyped(getTopGenres());
+  let genres = topFourGameGenres.map((genre) => genre.name).slice(0, 4);
 
   let suggestions = await prisma.genre.findMany({
     select: {
@@ -111,13 +111,13 @@ export default function Search() {
     <div className="min-h-screen relative bg-black">
       <div className="fixed inset-0 z-0">
         <img
-          src="/boy-playing-retro-games.webp"
+          src="/boy-gameboy-recess.webp"
           alt="Background"
           className="w-screen h-screen object-cover"
         />
         <div className="absolute inset-0 bg-black opacity-75"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black max-h-screen" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent max-h-screen" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black min-h-screen" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent min-h-screen" />
       </div>
 
       <div className="relative z-10 p-8">
