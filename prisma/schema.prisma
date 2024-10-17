@@ -13,7 +13,6 @@ datasource db {
 
 model Settings {
   id                      Int       @id @default(autoincrement())
-  romFolderLocation       String
   onboardingComplete      DateTime?
   showCategoryRecs        Boolean   @default(true)
   showDiscovery           Boolean   @default(true)

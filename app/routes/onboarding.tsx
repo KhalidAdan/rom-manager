@@ -10,11 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireUser } from "@/lib/auth/auth.server";
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
-import {
-  getFilesRecursively,
-  processFilePathsIntoGameObjects,
-  validateFolder,
-} from "@/lib/fs.server";
+import { processUploadedDirectory } from "@/lib/fs.server";
 import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
@@ -26,18 +22,37 @@ import {
   redirect,
 } from "@remix-run/node";
 import { Form } from "@remix-run/react";
+import { useState } from "react";
 import { z } from "zod";
 
+declare module "react" {
+  interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
+    webkitdirectory?: string;
+    directory?: string;
+  }
+}
+
 enum Intent {
-  SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
+  UPLOAD_ROMS = "upload-roms",
 }
 
 let OnboardingSchema = z.object({
   intent: z.string(),
-  romFolderLocation: z.string(),
+  roms: z
+    .any()
+    .refine(
+      (value) =>
+        value instanceof Object && "length" in value && value.length > 0,
+      {
+        message: "Please select a directory containing ROM files",
+      }
+    )
+    .transform((value) => Array.from(value as ArrayLike<File>)),
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  let settings = await prisma.settings.findFirst();
+  if (settings?.onboardingComplete) throw redirect("/explore");
   return await requireUser(request);
 }
 
@@ -55,45 +70,34 @@ export async function action({ request }: ActionFunctionArgs) {
     });
   }
 
-  let { romFolderLocation, intent } = submission.value;
+  let { roms, intent } = submission.value;
 
-  if (intent !== Intent.SET_ROM_FOLDER_LOCATION) {
+  if (intent !== Intent.UPLOAD_ROMS) {
     return json(
       submission.reply({ formErrors: ["Received an unknown intent"] }),
       { status: 400 }
     );
   }
 
-  if (!validateFolder(romFolderLocation)) {
-    return json(
-      submission.reply({
-        formErrors: ["The folder you provided does not exist!"],
-      }),
-      { status: 400 }
-    );
-  }
-
-  let [accessToken, allFiles] = await Promise.all([
-    getIGDBAccessToken(),
-    getFilesRecursively(romFolderLocation),
-  ]);
-
   let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
     (system) => system.extension
   );
 
-  let games = processFilePathsIntoGameObjects(allFiles, extensions);
-
   try {
     console.log("processing transaction");
-    await scrapeRoms(accessToken, games);
+    let [accessToken, processedFiles] = await Promise.all([
+      getIGDBAccessToken(),
+      processUploadedDirectory(roms, extensions),
+    ]);
 
+    await scrapeRoms(accessToken, processedFiles);
     await prisma.settings.create({
       data: {
-        romFolderLocation,
         onboardingComplete: new Date(),
       },
     });
+
+    console.log("Onboarding complete!");
 
     console.log("Updated settings, onboarding complete!");
 
@@ -122,21 +126,26 @@ export default function Onboarding() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form className="grid gap-6" {...getFormProps(form)} method="POST">
+          <Form
+            className="grid gap-6"
+            {...getFormProps(form)}
+            method="POST"
+            encType="multipart/form-data"
+          >
             <div className="grid gap-3">
               <Label htmlFor="name">Rom folder location</Label>
               <Input
                 className="w-full"
-                {...getInputProps(fields.romFolderLocation, {
-                  type: "text",
+                {...getInputProps(fields.roms, {
+                  type: "file",
                 })}
+                accept=".gba,.sfc,.gbc"
+                webkitdirectory=""
+                directory=""
+                multiple
               />
             </div>
-            <Button
-              name="intent"
-              value={Intent.SET_ROM_FOLDER_LOCATION}
-              type="submit"
-            >
+            <Button name="intent" value={Intent.UPLOAD_ROMS} type="submit">
               Set Directory
             </Button>
           </Form>
