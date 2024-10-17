@@ -181,12 +181,12 @@ limit 1;`.trim(),
 
 export async function scrapeRoms(
   accessToken: string,
-  games: Array<{
+  games: {
     title: string;
     fileName: string;
     file: ArrayBuffer;
     system: { title: string; extension: string };
-  }>
+  }[]
 ) {
   return await prisma.$transaction(
     async (txn) => {

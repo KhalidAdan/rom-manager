@@ -72,12 +72,12 @@ export function findUniqueFileNames(
     };
   }[]
 ) {
-  let filenamesSet = new Set(storedFiles);
-  return files.filter((file) => !filenamesSet.has(file.fileName));
+  let storedFilesSet = new Set(storedFiles);
+  return files.filter((file) => !storedFilesSet.has(file.fileName));
 }
 
 function prettifyROMTitles(filePath: string): string {
-  let fileName = filePath.split("\\").reverse().at(0);
+  let fileName = path.basename(filePath, path.extname(filePath));
   if (!fileName) {
     throw new Error("Invalid file path");
   }
@@ -101,7 +101,6 @@ export async function processUploadedDirectory(
 
   for (let i = 0; i < files.length; i++) {
     let file = files[i];
-    console.log(file);
     let extension = path.extname(file.name).toLowerCase();
 
     if (supportedExtensions.includes(extension)) {
@@ -111,8 +110,8 @@ export async function processUploadedDirectory(
 
       if (system) {
         processedFiles.push({
-          title: prettifyROMTitles(path.basename(file.name, extension)),
-          fileName: file.name,
+          title: prettifyROMTitles(file.name),
+          fileName: path.basename(file.name),
           file: await file.arrayBuffer(),
           system: system,
         });

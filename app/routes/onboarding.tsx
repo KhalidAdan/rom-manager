@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import { processUploadedDirectory } from "@/lib/fs.server";
@@ -21,10 +22,10 @@ import {
   LoaderFunctionArgs,
   redirect,
 } from "@remix-run/node";
-import { Form } from "@remix-run/react";
+import { useFetcher } from "@remix-run/react";
+import { Loader } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
-
 declare module "react" {
   interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
     webkitdirectory?: string;
@@ -51,8 +52,8 @@ let OnboardingSchema = z.object({
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  let settings = await prisma.settings.findFirst();
-  if (settings?.onboardingComplete) throw redirect("/explore");
+  // let settings = await prisma.settings.findFirst();
+  // if (settings?.onboardingComplete) throw redirect("/explore");
   return await requireUser(request);
 }
 
@@ -116,8 +117,14 @@ export default function Onboarding() {
     },
   });
 
+  let fetcher = useFetcher({ key: "onboarding-scrape-roms " });
+  let isSubmitting = useIsSubmitting({
+    formMethod: "POST",
+    formAction: "/onboarding",
+  });
+
   return (
-    <main className="h-full w-full flex justify-center items-center">
+    <main className="h-full w-full flex flex-col justify-center items-center">
       <Card className="min-w-max max-w-3xl h-fit">
         <CardHeader>
           <CardTitle>Rom folder location</CardTitle>
@@ -126,7 +133,7 @@ export default function Onboarding() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form
+          <fetcher.Form
             className="grid gap-6"
             {...getFormProps(form)}
             method="POST"
@@ -145,10 +152,21 @@ export default function Onboarding() {
                 multiple
               />
             </div>
-            <Button name="intent" value={Intent.UPLOAD_ROMS} type="submit">
-              Set Directory
+            <Button
+              name="intent"
+              value={Intent.UPLOAD_ROMS}
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin mr-2" /> Scraping...
+                </>
+              ) : (
+                "Select ROM folder"
+              )}
             </Button>
-          </Form>
+          </fetcher.Form>
         </CardContent>
       </Card>
     </main>

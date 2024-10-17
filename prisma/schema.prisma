@@ -48,7 +48,7 @@ model Game {
   coverArt        Bytes?
   backgroundImage Bytes?
   fileName        String // the literal file's name
-  file            Bytes? // GBA games just happen to be 16384KB and that seems to be perfect for read performance! https://www.sqlite.org/intern-v-extern-blob.html
+  file            Bytes?
   summary         String?
   completedAt     DateTime? // track when you beat or are done with a game
   created_at      DateTime  @default(now())

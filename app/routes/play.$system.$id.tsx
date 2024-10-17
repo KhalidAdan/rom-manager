@@ -6,12 +6,7 @@ import { DATA_DIR } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
-import {
-  ActionFunctionArgs,
-  json,
-  LoaderFunctionArgs,
-  redirect,
-} from "@remix-run/node";
+import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
 import { useBeforeUnload, useFetcher, useLoaderData } from "@remix-run/react";
 import { useCallback, useRef } from "react";
 import { z } from "zod";
@@ -33,7 +28,7 @@ declare global {
 }
 
 export enum Intent {
-  RemoveBorrowLock = "remove-borrow-lock",
+  RemoveBorrowVoucher = "remove-borrow-voucher",
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -64,8 +59,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
-  if (game.borrowedBy?.id !== user.id)
-    throw redirect(`/details/${game.system.title}/${game.id}`);
+  // if (game.borrowedBy?.id !== user.id)
+  //   throw redirect(`/details/${game.system.title}/${game.id}`);
 
   let fileData = game.file.toString("base64");
 
@@ -88,20 +83,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     selectedSystem: game.system.title,
     title: game.title,
     emulatorConfig,
-    clientIntent: Intent.RemoveBorrowLock,
+    clientIntent: Intent.RemoveBorrowVoucher,
   };
 }
 
-let RemoveBorrowLock = z.object({
-  intent: z.literal(Intent.RemoveBorrowLock),
+let RemoveBorrowVoucher = z.object({
+  intent: z.literal(Intent.RemoveBorrowVoucher),
   gameId: z.number(),
   borrowerId: z.number().optional(),
 });
 
-type RemoveBorrowLock = z.infer<typeof RemoveBorrowLock>;
+type RemoveBorrowVoucher = z.infer<typeof RemoveBorrowVoucher>;
 
-async function removeBorrowLock(
-  submission: Submission<RemoveBorrowLock>,
+async function removeBorrowVoucher(
+  submission: Submission<RemoveBorrowVoucher>,
   userId: number
 ) {
   if (submission.status !== "success") {
@@ -128,10 +123,10 @@ export async function action({ request }: ActionFunctionArgs) {
   let formData = await request.formData();
 
   let submission = parseWithZod(formData, {
-    schema: RemoveBorrowLock,
+    schema: RemoveBorrowVoucher,
   });
 
-  await removeBorrowLock(submission, user.id);
+  await removeBorrowVoucher(submission, user.id);
   return null;
 }
 
@@ -143,10 +138,10 @@ export default function Play() {
   let cleanupEmulator = useCallback(() => {
     if (window.EJS_emulator) {
       window.EJS_emulator.callEvent("exit");
-      fetcher.submit(
-        { intent: data.clientIntent, gameId: data.id },
-        { method: "POST" }
-      );
+      // fetcher.submit(
+      //   { intent: data.clientIntent, gameId: data.id },
+      //   { method: "POST" }
+      // );
     }
   }, []);
 

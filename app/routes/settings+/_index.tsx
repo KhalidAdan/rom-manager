@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
@@ -43,7 +44,7 @@ import {
   redirect,
 } from "@remix-run/node";
 import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { FileWarning, Info } from "lucide-react";
+import { FileWarning, Info, Loader } from "lucide-react";
 import { z } from "zod";
 
 enum Intent {
@@ -182,8 +183,10 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
   let allFiles = filterOutUnsupportedFileTypes(rawDiskFiles, extensions);
   let newFiles = findUniqueFileNames(
     dbFiles.map((db) => db.fileName),
-    allFiles
+    allFiles.map((file) => file)
   );
+
+  console.log("files to be uploaded", newFiles);
 
   try {
     console.log("processing transaction");
@@ -327,6 +330,10 @@ export default function SettingsPage() {
   });
 
   let fetcher = useFetcher();
+  let isSubmitting = useIsSubmitting({
+    formMethod: "POST",
+    formAction: "/settings",
+  });
 
   const handleCheckboxChange = (intent: Intent, checked: boolean) => {
     fetcher.submit({ intent, value: checked.toString() }, { method: "POST" });
@@ -397,8 +404,15 @@ export default function SettingsPage() {
                 name="intent"
                 value={Intent.UPLOAD_ROMS}
                 type="submit"
+                disabled={isSubmitting}
               >
-                Set Directory
+                {isSubmitting ? (
+                  <>
+                    <Loader className="animate-spin mr-2" /> Scraping...
+                  </>
+                ) : (
+                  "Select ROM folder"
+                )}
               </Button>
             </CardFooter>
           </Card>

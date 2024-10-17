@@ -397,7 +397,7 @@ export default function RomDetails() {
                         variant="destructive"
                         type="submit"
                         name="intent"
-                        value={PlayIntent.RemoveBorrowLock}
+                        value={PlayIntent.RemoveBorrowVoucher}
                       >
                         Revoke lock
                       </Button>
@@ -519,7 +519,6 @@ export default function RomDetails() {
             <div className="flex gap-4">
               {!borrowedBy ? (
                 <Link
-                  preventScrollReset
                   to={`/play/${system.title}/${id}`}
                   className={buttonVariants({ variant: "default" })}
                   onClick={() => {
