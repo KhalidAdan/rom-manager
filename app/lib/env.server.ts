@@ -4,12 +4,8 @@ let envVariables = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
   DATABASE_URL: z.string(),
   SESSION_SECRET: z.string(),
-  GOOGLE_CLIENT_ID: z.string(),
-  GOOGLE_CLIENT_SECRET: z.string(),
-  GOOGLE_CALLBACK_URL: z.string(),
   TWITCH_CLIENT_ID: z.string(),
   TWITCH_SECRET: z.string(),
-  GIANTBOMB_API_KEY: z.string(),
 });
 
 try {

@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_SECRET=${TWITCH_SECRET}
+    env_file:
+      - .env
+    volumes:
+      - ./prisma:/app/prisma
+      - sqlite-data:/app/prisma/data
+    network_mode: host
+
+volumes:
+  sqlite-data:

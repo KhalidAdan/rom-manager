@@ -1,0 +1,71 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Remix build output
+build
+public/build
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+
+# Remix specific
+.cache
+api/_build
+
+# Prisma (if you're using it)
+prisma/*.db
+prisma/migrations
+
+# Other unnecessary files
+*.md
+LICENSE
+docker-compose*
+Dockerfile*
+.dockerignore
+
+# Logs
+logs
+*.log
+
+# Optional: Development scripts
+*.dev.js
+*.dev.ts
+
+# Optional: Large media files (if not needed in Docker)
+*.mp4
+*.tiff
+*.avi
+*.flv
+*.mov
+*.wmv
