@@ -15,7 +15,7 @@ export function useLoadSaveFiles(
           console.error("An error occurred getting save files", error);
         }
       } else {
-        console.error("EJS_GameManager is not available");
+        console.log("EJS_emulator is not available");
       }
     };
 

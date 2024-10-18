@@ -111,39 +111,46 @@ export async function loader({ request }: LoaderFunctionArgs) {
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
       await getLastPlayedGame(user.id, settings.spotlightIncompleteGame);
 
-    return json({
-      games: games.map((game) => {
-        return {
-          ...game,
-          coverArt: bufferToStringIfExists(game.coverArt),
-        };
-      }),
-      lastPlayedGame: lastPlayedGame
-        ? {
-            id: lastPlayedGame.game.id,
-            title: lastPlayedGame.game.title,
-            summary: lastPlayedGame.game.summary,
-            system: lastPlayedGame.game.system.title,
-            backgroundImage: bufferToStringIfExists(
-              lastPlayedGame.game.backgroundImage
-            ),
-          }
-        : undefined,
-      randomGame: {
-        ...randomGame,
-        backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
+    return json(
+      {
+        games: games.map((game) => {
+          return {
+            ...game,
+            coverArt: bufferToStringIfExists(game.coverArt),
+          };
+        }),
+        lastPlayedGame: lastPlayedGame
+          ? {
+              id: lastPlayedGame.game.id,
+              title: lastPlayedGame.game.title,
+              summary: lastPlayedGame.game.summary,
+              system: lastPlayedGame.game.system.title,
+              backgroundImage: bufferToStringIfExists(
+                lastPlayedGame.game.backgroundImage
+              ),
+            }
+          : undefined,
+        randomGame: {
+          ...randomGame,
+          backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
+        },
+        settings,
+        discoveryQueue: discoveryQueue.map((d) => ({
+          ...d,
+          coverArt: bufferToStringIfExists(d.coverArt),
+        })),
+        genres: genres.map((genre) => ({
+          ...genre,
+          count: Number(genre.count),
+          coverArt: bufferToStringIfExists(genre.coverArt),
+        })),
       },
-      settings,
-      discoveryQueue: discoveryQueue.map((d) => ({
-        ...d,
-        coverArt: bufferToStringIfExists(d.coverArt),
-      })),
-      genres: genres.map((genre) => ({
-        ...genre,
-        count: Number(genre.count), // can't serialize big ints?
-        coverArt: bufferToStringIfExists(genre.coverArt),
-      })),
-    });
+      {
+        headers: {
+          "Cache-Control": "max-age=3600, public",
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error(error);
     return {
