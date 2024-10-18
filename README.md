@@ -9,13 +9,12 @@ Note: Any changes to EmulatorJS will need to be minified via public/emulatorjs/d
 
 ## ROM Scanning
 
-ROM scanning is powered by IGDB, which requires a Twitch.tv client ID. Follow the IGDB documentation to set up your API access.
+ROM scanning is powered by IGDB, which requires a Twitch.tv client ID. Session secrets can be generated via `openssl rand -base64 32`.  Follow the [IGDB documentation](https://api-docs.igdb.com/#getting-started) to set up your API access.
 
 ## Important Notes
 
-- Remember to export your save files before making any significant changes.
+- Remember to export your save files from IndexedDB after each play session!
 - This application is intended for personal use with legally obtained ROMs.
-- Always respect copyright laws and game ownership rights.
 
 ## Images
 
