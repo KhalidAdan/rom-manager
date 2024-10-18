@@ -1,22 +1,17 @@
-import { Badge } from "@/components/ui/badge";
+import { GenericCarousel } from "@/components/molecules/generic-carousel";
+import { StaticGameCard } from "@/components/molecules/static-game-card";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { requireUser } from "@/lib/auth/auth.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
+import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   let genreId = params.id;
-  console.log(genreId);
 
   if (!genreId) {
     throw new Response("Not Found", { status: 404 });
@@ -27,7 +22,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       gameGenres: true,
     },
   });
-  console.log("activeGenre", activeGenre);
+
   let allGenres = await prisma.genre.findMany({
     include: {
       _count: {
@@ -35,7 +30,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
   });
-  console.log("allGenres", allGenres);
+
   let gamesInGenre = await prisma.game.findMany({
     where: {
       gameGenres: {
@@ -57,7 +52,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
   });
-  console.log("gamesInGenre", gamesInGenre);
+
   let gameStats = await prisma.gameStats.count({
     where: {
       userId: user.id,
@@ -70,8 +65,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       },
     },
   });
-
-  console.log("gameStats", gameStats);
 
   if (!activeGenre) {
     throw new Response("Genre Not Found", { status: 404 });
@@ -109,8 +102,22 @@ export default function GenrePage() {
   } = useLoaderData<typeof loader>();
 
   return (
-    <div className="min-h-screen text-white relative">
-      {/* Background Image */}
+    <div className="min-h-screen relative mt-8">
+      <header className="flex justify-between mb-14 max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
+          {"{"} ROMSTHO {"}"}
+        </h1>
+        <Link
+          to="/explore"
+          className={cn(
+            buttonVariants({ variant: "link" }),
+            "font-mono italic, z-10"
+          )}
+        >
+          Explore
+        </Link>
+      </header>
+
       <div
         className="absolute inset-0 bg-cover bg-center bg-fixed z-0 opacity-20"
         style={{
@@ -122,61 +129,29 @@ export default function GenrePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent max-h-full" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 p-6">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* All ROMs Carousel */}
           <div>
             <h2 className="text-2xl font-semibold mb-4">
               All {activeGenre.name} ROMs
             </h2>
-            <Carousel
-              className="w-full"
-              opts={{
-                align: "start",
-                loop: true,
-                skipSnaps: true,
-              }}
-            >
-              <CarouselContent>
-                {gamesInGenre.map((game) => (
-                  <CarouselItem
-                    key={game.id}
-                    className="md:basis-1/2 lg:basis-1/3"
-                  >
-                    <div className="p-1">
-                      <Card className="bg-opacity-80 overflow-hidden">
-                        <CardContent className="p-0 aspect-[3/4] relative group">
-                          <img
-                            src={
-                              `data:image/jpeg;base64,${game.coverArt}` ||
-                              "/placeholder.svg?height=300&width=200"
-                            }
-                            alt={game.title}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
-                            <div>
-                              <h3 className="font-semibold text-lg">
-                                {game.title}
-                              </h3>
-                              <Badge className="rounded">
-                                {game.system.title}
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
+            <GenericCarousel
+              items={gamesInGenre}
+              carouselClassName="w-full"
+              carouselContentClassName=""
+              carouselItemClassName="md:basis-1/2 lg:basis-1/3"
+              useAdaptiveSlidesToScroll={false}
+              renderItem={(game) => (
+                <StaticGameCard
+                  id={game.id}
+                  title={game.title}
+                  coverArt={game.coverArt}
+                  systemTitle={game.system.title}
+                />
+              )}
+            />
           </div>
 
-          {/* Category Stats */}
           <div className="bg-black bg-opacity-80 p-6 rounded-lg">
             <h2 className="text-2xl font-semibold mb-4">
               {activeGenre.name} Category Stats
@@ -197,7 +172,6 @@ export default function GenrePage() {
             </div>
           </div>
 
-          {/* All Categories */}
           <div>
             <h2 className="text-2xl font-semibold mb-4">All Categories</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

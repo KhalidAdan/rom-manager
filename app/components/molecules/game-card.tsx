@@ -10,12 +10,10 @@ type GameCardType = {
 
 export function GameCard({ id, title, coverArt, systemTitle }: GameCardType) {
   return (
-    <button
+    <div
       className={cn(
         "aspect-[3/4] relative  cursor-pointer overflow-hidden group"
       )}
-      type="submit"
-      disabled
     >
       <Link
         to={`/details/${systemTitle.toLowerCase()}/${id}`}
@@ -38,7 +36,7 @@ export function GameCard({ id, title, coverArt, systemTitle }: GameCardType) {
           </p>
         </div>
       </Link>
-    </button>
+    </div>
   );
 }
 

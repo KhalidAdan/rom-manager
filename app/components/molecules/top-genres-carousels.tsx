@@ -1,5 +1,5 @@
 import { GenericCarousel } from "../molecules/generic-carousel";
-import { GameCard } from "../molecules/generic-game-card";
+import { GameCard } from "./game-card";
 
 interface Game {
   id: number;

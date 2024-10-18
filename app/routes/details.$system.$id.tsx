@@ -20,7 +20,6 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
-import { cn } from "@/lib/utils";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
   getFormProps,
@@ -330,7 +329,6 @@ export default function RomDetails() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Background Image */}
       <div className="absolute inset-0 z-0 h-full w-full">
         <img
           src={
@@ -345,18 +343,19 @@ export default function RomDetails() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16">
         <div className="flex w-full justify-start mb-4">
-          <Link
-            to="/explore"
-            className={cn(buttonVariants({ variant: "link" }), "flex")}
+          <Button
+            onClick={() => navigate(-1)}
+            className="flex"
+            variant="link"
+            role="link"
           >
             <span className="mr-2">
               <ArrowLeft />
             </span>
             Go Back
-          </Link>
+          </Button>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-shrink-0">

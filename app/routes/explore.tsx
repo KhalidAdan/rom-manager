@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
+import { Search } from "lucide-react";
 import { Intent } from "./details.$system.$id";
 
 async function getLastPlayedGame(
@@ -225,7 +226,16 @@ export default function Explore() {
                 "font-mono italic"
               )}
             >
-              Search
+              <Search className="h-4 w-4 mr-2" /> Search
+            </Link>
+            <Link
+              to="/settings"
+              className={cn(
+                buttonVariants({ variant: "link" }),
+                "font-mono italic"
+              )}
+            >
+              Settings
             </Link>
           </div>
         </div>
@@ -251,9 +261,6 @@ export default function Explore() {
           games={games.filter((rom) => rom.system.title === "GBC") as any}
           systemTitle={"GBC"}
         />
-      </div>
-      <div className="max-w-7xl mx-auto py-14">
-        <Link to="/settings">Settings</Link>
       </div>
     </main>
   );

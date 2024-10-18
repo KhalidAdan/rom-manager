@@ -1,7 +1,7 @@
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import { Game, System } from "@prisma/client";
+import { GameCard } from "./game-card";
 import { GenericCarousel } from "./generic-carousel";
-import { GameCard } from "./generic-game-card";
 
 export type RomType = {
   id: Game["id"];

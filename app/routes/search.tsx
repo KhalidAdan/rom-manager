@@ -1,18 +1,13 @@
-import {
-  GameCard,
-  GameCardSkeleton,
-} from "@/components/molecules/generic-game-card";
+import { GameCard, GameCardSkeleton } from "@/components/molecules/game-card";
 import { SuggestionCard } from "@/components/molecules/suggestion-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollBar } from "@/components/ui/scroll-area";
 import { requireUser } from "@/lib/auth/auth.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import { Game, System } from "@prisma/client";
 import { getTopGenres } from "@prisma/client/sql";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import {
   Link,
@@ -88,8 +83,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
-let completions = ["Adventure", "Tactical", "RPG"];
-
 export default function Search() {
   let initialData = useLoaderData<typeof loader>();
   let [results, setResults] = useState(initialData.query);
@@ -116,8 +109,8 @@ export default function Search() {
           className="w-screen h-screen object-cover"
         />
         <div className="absolute inset-0 bg-black opacity-75"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black min-h-screen" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent min-h-screen" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black min-h-screen -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent min-h-screen -z-10" />
       </div>
 
       <div className="relative z-10 p-8">
@@ -163,29 +156,12 @@ export default function Search() {
           </div>
 
           <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-full md:w-1/4">
-              <h2 className="text-xl font-semibold mb-4">Tags</h2>
-              <ScrollArea className="md:h-[calc(100vh-200px)]">
-                <ul>
-                  {completions.map((completion, index) => (
-                    <li
-                      key={index}
-                      className="py-2 px-3 hover:bg-accent/25 cursor-pointer rounded-lg"
-                    >
-                      {completion}
-                    </li>
-                  ))}
-                </ul>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-
-            <div className="w-full md:w-3/4">
+            <div className="w-full">
               <h2 className="text-xl font-semibold mb-4">
                 {results ? "Results" : ""}
               </h2>
 
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-1">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-1">
                 {results && results.length > 0 ? (
                   results.map((rom) => (
                     <div
