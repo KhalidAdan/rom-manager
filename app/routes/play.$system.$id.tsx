@@ -110,12 +110,12 @@ async function removeBorrowVoucher(
     });
   }
 
-  let { gameId, borrowerId } = submission.value;
+  let { gameId } = submission.value;
 
   await prisma.game.update({
     where: {
+      userId,
       id: gameId,
-      userId: borrowerId ?? userId,
     },
     data: {
       userId: null,
@@ -172,7 +172,10 @@ export default function Play() {
   return (
     <main>
       <div id="game" className="h-full w-full bg-background"></div>
-      <fetcher.Form method="POST"></fetcher.Form>
+      <fetcher.Form
+        method="POST"
+        action={`/play/${data.selectedSystem}/${data.id}`}
+      ></fetcher.Form>
     </main>
   );
 }

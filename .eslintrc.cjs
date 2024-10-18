@@ -71,6 +71,11 @@ module.exports = {
         "plugin:import/recommended",
         "plugin:import/typescript",
       ],
+      rules: [
+        {
+          "prefer-const": "off",
+        },
+      ],
     },
 
     // Node

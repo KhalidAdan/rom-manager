@@ -14,7 +14,6 @@ services:
     volumes:
       - ./prisma:/app/prisma
       - sqlite-data:/app/prisma/data
-    network_mode: host
 
 volumes:
   sqlite-data:

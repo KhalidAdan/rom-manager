@@ -5,8 +5,9 @@ WORKDIR /app
 COPY package*.json ./
 
 ENV NPM_CONFIG_LOGLEVEL=verbose
+ENV PORT=5173
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -16,9 +17,5 @@ RUN npm cache clean --force
 EXPOSE 5173
 
 ENV NODE_ENV=production
-ENV DATABASE_URL=""
-ENV SESSION_SECRET=""
-ENV TWITCH_CLIENT_ID=""
-ENV TWITCH_SECRET=""
 
-CMD ["/bin/sh", "-c", "npx prisma migrate deploy && npm start"]
+CMD ["/bin/sh", "-c", "export PORT=5173 && npx prisma migrate deploy && npx prisma generate --sql && npm start"]
