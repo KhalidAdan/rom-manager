@@ -2,8 +2,15 @@ import { DATA_DIR } from "@/lib/const";
 import { MutableRefObject, useEffect } from "react";
 
 interface EmulatorConfig {
-  // Define the structure of your emulator config
-  [key: string]: any;
+  EJS_player: string;
+  EJS_biosUrl: string;
+  EJS_core: string;
+  EJS_gameName: string;
+  EJS_startOnLoaded: boolean;
+  EJS_pathtodata: string;
+  EJS_gameUrl: string;
+  EJS_emulator: any;
+  EJS_GameManager: any;
 }
 
 interface EmulatorData {

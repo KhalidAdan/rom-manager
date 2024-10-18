@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
-import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+import { UserRoles } from "@/lib/auth/providers.server";
+import { MAX_FILES, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import { processUploadedDirectory } from "@/lib/fs.server";
 import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
@@ -24,7 +25,7 @@ import {
 } from "@remix-run/node";
 import { useFetcher } from "@remix-run/react";
 import { Loader } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { z } from "zod";
 declare module "react" {
   interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
@@ -38,23 +39,32 @@ enum Intent {
 }
 
 let OnboardingSchema = z.object({
-  intent: z.string(),
+  intent: z.literal("upload-roms"),
   roms: z
-    .any()
-    .refine(
-      (value) =>
-        value instanceof Object && "length" in value && value.length > 0,
-      {
-        message: "Please select a directory containing ROM files",
-      }
+    .array(z.instanceof(File))
+    .min(1, "Please select at least one ROM file")
+    .max(
+      MAX_FILES,
+      `Too many files selected. Please select ${MAX_FILES} or fewer files.`
     )
-    .transform((value) => Array.from(value as ArrayLike<File>)),
+    .refine(
+      (files) =>
+        files.every((file) =>
+          SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+            (system) => system.extension
+          ).some((ext) => file.name.toLowerCase().endsWith(ext))
+        ),
+      `All files must be of supported types: ${SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+        (system) => system.title
+      ).join(", ")}`
+    ),
 });
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // let settings = await prisma.settings.findFirst();
-  // if (settings?.onboardingComplete) throw redirect("/explore");
-  return await requireUser(request);
+  let user = await requireUser(request);
+  let settings = await prisma.settings.findFirst();
+  if (settings?.onboardingComplete || user.roleId !== UserRoles.ADMIN)
+    throw redirect("/explore");
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -110,6 +120,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Onboarding() {
+  let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   let [form, fields] = useForm({
     shouldValidate: "onBlur",
     onValidate({ formData }) {
@@ -122,6 +133,37 @@ export default function Onboarding() {
     formMethod: "POST",
     formAction: "/onboarding",
   });
+
+  let handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      let files = event.target.files;
+      if (files) {
+        let filteredFiles = Array.from(files).filter((file) =>
+          SUPPORTED_SYSTEMS_WITH_EXTENSIONS.some((system) =>
+            file.name.toLowerCase().endsWith(system.extension)
+          )
+        );
+        console.log(filteredFiles);
+        setSelectedFiles(filteredFiles);
+      }
+    },
+    []
+  );
+
+  let handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      console.log(selectedFiles);
+      event.preventDefault();
+      let formData = new FormData();
+      formData.append("intent", Intent.UPLOAD_ROMS);
+      selectedFiles.forEach((file) => formData.append("roms", file));
+      fetcher.submit(formData, {
+        method: "POST",
+        encType: "multipart/form-data",
+      });
+    },
+    [selectedFiles, fetcher]
+  );
 
   return (
     <main className="h-full w-full flex flex-col justify-center items-center">
@@ -138,6 +180,7 @@ export default function Onboarding() {
             {...getFormProps(form)}
             method="POST"
             encType="multipart/form-data"
+            onSubmit={handleSubmit}
           >
             <div className="grid gap-3">
               <Label htmlFor="name">Rom folder location</Label>
@@ -146,7 +189,7 @@ export default function Onboarding() {
                 {...getInputProps(fields.roms, {
                   type: "file",
                 })}
-                accept=".gba,.sfc,.gbc"
+                onChange={handleFileChange}
                 webkitdirectory=""
                 directory=""
                 multiple

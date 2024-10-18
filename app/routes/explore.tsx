@@ -164,8 +164,8 @@ export default function Explore() {
     <main className="bg-black">
       <div className="flex justify-between pt-10 px-16">
         <div className="w-full flex justify-between">
-          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
-            {"{"} ROMSTHO {"}"}
+          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic text-nowrap">
+            {"{ ROMSTHO }"}
           </h1>
           <div className="flex gap-4">
             {games.length > 0 && (

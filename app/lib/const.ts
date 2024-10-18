@@ -15,6 +15,7 @@ export const SUPPORTED_SYSTEMS_WITH_EXTENSIONS = [
 
 export const DATA_DIR = "/emulatorjs/data/";
 
+export const MAX_FILES = 250;
 export const MAX_UPLOAD_SIZE = 1024 * 1024 * 5;
 export const ROM_MAX_SIZE = 1024 * 1024 * 24;
 

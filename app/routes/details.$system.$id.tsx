@@ -20,6 +20,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
+import { cn } from "@/lib/utils";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
   getFormProps,
@@ -347,12 +348,15 @@ export default function RomDetails() {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16">
         <div className="flex w-full justify-start mb-4">
-          <Button variant="link" className="flex" onClick={() => navigate(-1)}>
+          <Link
+            to="/explore"
+            className={cn(buttonVariants({ variant: "link" }), "flex")}
+          >
             <span className="mr-2">
               <ArrowLeft />
             </span>
             Go Back
-          </Button>
+          </Link>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-shrink-0">

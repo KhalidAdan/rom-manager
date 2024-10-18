@@ -6,7 +6,12 @@ import { DATA_DIR } from "@/lib/const";
 import { prisma } from "@/lib/prisma.server";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
-import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
+import {
+  ActionFunctionArgs,
+  json,
+  LoaderFunctionArgs,
+  redirect,
+} from "@remix-run/node";
 import { useBeforeUnload, useFetcher, useLoaderData } from "@remix-run/react";
 import { useCallback, useRef } from "react";
 import { z } from "zod";
@@ -59,8 +64,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
-  // if (game.borrowedBy?.id !== user.id)
-  //   throw redirect(`/details/${game.system.title}/${game.id}`);
+  if (game.borrowedBy && game.borrowedBy?.id !== user.id)
+    throw redirect(`/details/${game.system.title}/${game.id}`);
 
   let fileData = game.file.toString("base64");
 
@@ -131,17 +136,17 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Play() {
-  let data = useLoaderData<typeof loader>();
+  let data: any = useLoaderData<typeof loader>(); // RR7 can't come soon enough
   let emulatorInitialized = useRef(false);
   let fetcher = useFetcher({ key: data.clientIntent });
 
   let cleanupEmulator = useCallback(() => {
     if (window.EJS_emulator) {
       window.EJS_emulator.callEvent("exit");
-      // fetcher.submit(
-      //   { intent: data.clientIntent, gameId: data.id },
-      //   { method: "POST" }
-      // );
+      fetcher.submit(
+        { intent: data.clientIntent, gameId: data.id },
+        { method: "POST" }
+      );
     }
   }, []);
 
