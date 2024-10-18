@@ -5,10 +5,8 @@ import {
   CATEGORY_PORT,
   CATEGORY_REMAKE,
 } from "@/lib/const";
-import { promises as fs } from "fs";
 import { z } from "zod";
 import { MAX_UPLOAD_SIZE } from "./const";
-import { processFilePathsIntoGameObjects } from "./fs.server";
 import { prisma } from "./prisma.server";
 
 let Artwork = z.object({
@@ -165,7 +163,6 @@ limit 1;`.trim(),
       backgroundImage = await artworkResponse.blob();
     }
   }
-
   return {
     id: game.id ?? undefined,
     title: game.name ?? undefined,
@@ -184,13 +181,17 @@ limit 1;`.trim(),
 
 export async function scrapeRoms(
   accessToken: string,
-  games: Awaited<ReturnType<typeof processFilePathsIntoGameObjects>>
+  games: {
+    title: string;
+    fileName: string;
+    file: ArrayBuffer;
+    system: { title: string; extension: string };
+  }[]
 ) {
   return await prisma.$transaction(
     async (txn) => {
-      for (let { title, fileName, location, system } of games) {
-        console.log(`---`, title);
-        let romBuffer = await fs.readFile(location);
+      for (let { title, fileName, file, system } of games) {
+        console.log(`--- Processing: ${title}`);
 
         let game = await fetchGameMetadata(
           process.env.TWITCH_CLIENT_ID,
@@ -203,7 +204,7 @@ export async function scrapeRoms(
           data: {
             title: game.title ?? title,
             fileName,
-            file: romBuffer,
+            file: Buffer.from(file),
             releaseDate: game.releaseDate ?? 0,
             rating: game.total_rating,
             summary: game.summary ?? "",
@@ -237,6 +238,7 @@ export async function scrapeRoms(
             system: true,
           },
         });
+
         await sleep(250); // IGDB rate limit
 
         console.log(`${title} completed processing and inserted`);

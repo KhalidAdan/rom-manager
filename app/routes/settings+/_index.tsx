@@ -18,15 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
-import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
+import { MAX_FILES, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import {
   filterOutUnsupportedFileTypes,
   findUniqueFileNames,
-  getFilesRecursively,
-  processFilePathsIntoGameObjects,
-  validateFolder,
+  processUploadedDirectory,
 } from "@/lib/fs.server";
 import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
 import { prisma } from "@/lib/prisma.server";
@@ -45,11 +44,12 @@ import {
   redirect,
 } from "@remix-run/node";
 import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { FileWarning, Info } from "lucide-react";
+import { FileWarning, Info, Loader } from "lucide-react";
+import { useCallback, useState } from "react";
 import { z } from "zod";
 
 enum Intent {
-  SET_ROM_FOLDER_LOCATION = "set-rom-folder-location",
+  UPLOAD_ROMS = "upload-roms",
   DISALLOW_SIGNUP = "disallow-signup",
   ALLOW_SIGNUP = "allow-signup",
   UPDATE_SHOW_CATEGORY_RECS = "update-show-category-recs",
@@ -63,8 +63,25 @@ enum RefusalReason {
 
 let FolderScanSchema = z.object({
   id: z.number().optional(),
-  intent: z.literal(Intent.SET_ROM_FOLDER_LOCATION),
-  romFolderLocation: z.string(),
+  intent: z.literal(Intent.UPLOAD_ROMS),
+  roms: z
+    .array(z.instanceof(File))
+    .min(1, "Please select at least one ROM file")
+    .max(
+      MAX_FILES,
+      `Too many files selected. Please select ${MAX_FILES} or fewer files.`
+    )
+    .refine(
+      (files) =>
+        files.every((file) =>
+          SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+            (system) => system.extension
+          ).some((ext) => file.name.toLowerCase().endsWith(ext))
+        ),
+      `All files must be of supported types: ${SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
+        (system) => system.title
+      ).join(", ")}`
+    ),
 });
 
 type FolderScanSchema = z.infer<typeof FolderScanSchema>;
@@ -147,32 +164,23 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
     });
   }
 
-  let { romFolderLocation, intent } = submission.value;
+  let { roms, intent } = submission.value;
 
-  if (intent !== Intent.SET_ROM_FOLDER_LOCATION) {
+  if (intent !== Intent.UPLOAD_ROMS) {
     return json(
       submission.reply({ formErrors: ["Received an unknown intent"] }),
       { status: 400 }
     );
   }
 
-  if (!validateFolder(romFolderLocation)) {
-    return json(
-      submission.reply({
-        formErrors: ["The folder you provided does not exist!"],
-      }),
-      { status: 400 }
-    );
-  }
-
-  let [accessToken, rawDiskFiles] = await Promise.all([
-    getIGDBAccessToken(),
-    getFilesRecursively(romFolderLocation),
-  ]);
-
   let extensions = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.map(
     (system) => system.extension
   );
+
+  let [accessToken, rawDiskFiles] = await Promise.all([
+    getIGDBAccessToken(),
+    processUploadedDirectory(roms, extensions),
+  ]);
 
   let dbFiles = await prisma.game.findMany({
     select: {
@@ -184,14 +192,14 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
   let allFiles = filterOutUnsupportedFileTypes(rawDiskFiles, extensions);
   let newFiles = findUniqueFileNames(
     dbFiles.map((db) => db.fileName),
-    allFiles
+    allFiles.map((file) => file)
   );
 
-  let games = processFilePathsIntoGameObjects(newFiles, extensions);
+  console.log("files to be uploaded", newFiles);
 
   try {
     console.log("processing transaction");
-    await scrapeRoms(accessToken, games);
+    await scrapeRoms(accessToken, newFiles);
     console.log("Folder Scanning complete!");
 
     return redirect("/explore");
@@ -280,7 +288,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let intent = formData.get("intent");
 
   switch (intent) {
-    case Intent.SET_ROM_FOLDER_LOCATION: {
+    case Intent.UPLOAD_ROMS: {
       let submission = parseWithZod(formData, {
         schema: FolderScanSchema,
       });
@@ -313,14 +321,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function SettingsPage() {
+  let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   let {
-    settings: {
-      id,
-      romFolderLocation,
-      showCategoryRecs,
-      showDiscovery,
-      spotlightIncompleteGame,
-    },
+    settings: { id, showCategoryRecs, showDiscovery, spotlightIncompleteGame },
     users,
     gamesLocked,
   } = useLoaderData<typeof loader>();
@@ -333,15 +336,49 @@ export default function SettingsPage() {
     },
     defaultValue: {
       id,
-      romFolderLocation,
     },
   });
 
-  let fetcher = useFetcher();
+  let fetcher = useFetcher({ key: "settings-fetcher" });
+  let isSubmitting = useIsSubmitting({
+    formMethod: "POST",
+    formAction: "/settings",
+  });
 
-  const handleCheckboxChange = (intent: Intent, checked: boolean) => {
+  let handleCheckboxChange = (intent: Intent, checked: boolean) => {
     fetcher.submit({ intent, value: checked.toString() }, { method: "POST" });
   };
+
+  let handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      let files = event.target.files;
+      if (files) {
+        let filteredFiles = Array.from(files).filter((file) =>
+          SUPPORTED_SYSTEMS_WITH_EXTENSIONS.some((system) =>
+            file.name.toLowerCase().endsWith(system.extension)
+          )
+        );
+        console.log(filteredFiles);
+        setSelectedFiles(filteredFiles);
+      }
+    },
+    []
+  );
+
+  let handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      console.log(selectedFiles);
+      event.preventDefault();
+      let formData = new FormData();
+      formData.append("intent", Intent.UPLOAD_ROMS);
+      selectedFiles.forEach((file) => formData.append("roms", file));
+      fetcher.submit(formData, {
+        method: "POST",
+        encType: "multipart/form-data",
+      });
+    },
+    [selectedFiles, fetcher]
+  );
 
   return (
     <div className="min-h-screen p-8 bg-muted/15">
@@ -370,21 +407,25 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form
+              <fetcher.Form
                 className="grid gap-6"
                 {...getFormProps(form)}
                 method="POST"
+                encType="multipart/form-data"
+                onSubmit={handleSubmit}
               >
                 <Input {...getInputProps(fields.id, { type: "hidden" })} />
                 <div className="grid gap-2">
-                  <Label htmlFor={fields.romFolderLocation.id}>
-                    Rom folder location
-                  </Label>
+                  <Label htmlFor={fields.roms.id}>Rom folder location</Label>
                   <Input
                     className="w-full"
-                    {...getInputProps(fields.romFolderLocation, {
-                      type: "text",
+                    {...getInputProps(fields.roms, {
+                      type: "file",
                     })}
+                    onChange={handleFileChange}
+                    webkitdirectory=""
+                    directory=""
+                    multiple
                   />
                   <p className="flex items-center gap-2 pt-1 text-sm">
                     <Info className="text-blue-500" size={18} /> ROMSTHO
@@ -398,16 +439,23 @@ export default function SettingsPage() {
                     re-added to your local database and you will see duplicates!
                   </p>
                 </div>
-              </Form>
+              </fetcher.Form>
             </CardContent>
             <CardFooter>
               <Button
                 form={form.id}
                 name="intent"
-                value={Intent.SET_ROM_FOLDER_LOCATION}
+                value={Intent.UPLOAD_ROMS}
                 type="submit"
+                disabled={isSubmitting}
               >
-                Set Directory
+                {isSubmitting ? (
+                  <>
+                    <Loader className="animate-spin mr-2" /> Scraping...
+                  </>
+                ) : (
+                  "Select ROM folder"
+                )}
               </Button>
             </CardFooter>
           </Card>

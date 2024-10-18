@@ -9,7 +9,7 @@ let userSessionStore: {
 } = {};
 
 const USER_PERMISSIONS_REVOKED_TIMEOUT = 600_000;
-const POLLING_FREQUENCY = 60_000;
+const POLLING_FREQUENCY = 6_000;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireUser(request);
@@ -48,6 +48,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     let interval = setInterval(async () => {
+      console.log("pinging");
       await checkRevocation();
     }, POLLING_FREQUENCY);
 

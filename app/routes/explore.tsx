@@ -111,46 +111,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
     let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
       await getLastPlayedGame(user.id, settings.spotlightIncompleteGame);
 
-    return json(
-      {
-        games: games.map((game) => {
-          return {
-            ...game,
-            coverArt: bufferToStringIfExists(game.coverArt),
-          };
-        }),
-        lastPlayedGame: lastPlayedGame
-          ? {
-              id: lastPlayedGame.game.id,
-              title: lastPlayedGame.game.title,
-              summary: lastPlayedGame.game.summary,
-              system: lastPlayedGame.game.system.title,
-              backgroundImage: bufferToStringIfExists(
-                lastPlayedGame.game.backgroundImage
-              ),
-            }
-          : undefined,
-        randomGame: {
-          ...randomGame,
-          backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
-        },
-        settings,
-        discoveryQueue: discoveryQueue.map((d) => ({
-          ...d,
-          coverArt: bufferToStringIfExists(d.coverArt),
-        })),
-        genres: genres.map((genre) => ({
-          ...genre,
-          count: Number(genre.count), // can't serialize big ints?
-          coverArt: bufferToStringIfExists(genre.coverArt),
-        })),
+    return json({
+      games: games.map((game) => {
+        return {
+          ...game,
+          coverArt: bufferToStringIfExists(game.coverArt),
+        };
+      }),
+      lastPlayedGame: lastPlayedGame
+        ? {
+            id: lastPlayedGame.game.id,
+            title: lastPlayedGame.game.title,
+            summary: lastPlayedGame.game.summary,
+            system: lastPlayedGame.game.system.title,
+            backgroundImage: bufferToStringIfExists(
+              lastPlayedGame.game.backgroundImage
+            ),
+          }
+        : undefined,
+      randomGame: {
+        ...randomGame,
+        backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
       },
-      {
-        headers: {
-          "Cache-Control": "max-age=3600; public",
-        },
-      }
-    );
+      settings,
+      discoveryQueue: discoveryQueue.map((d) => ({
+        ...d,
+        coverArt: bufferToStringIfExists(d.coverArt),
+      })),
+      genres: genres.map((genre) => ({
+        ...genre,
+        count: Number(genre.count), // can't serialize big ints?
+        coverArt: bufferToStringIfExists(genre.coverArt),
+      })),
+    });
   } catch (error: unknown) {
     console.error(error);
     return {
@@ -171,8 +164,8 @@ export default function Explore() {
     <main className="bg-black">
       <div className="flex justify-between pt-10 px-16">
         <div className="w-full flex justify-between">
-          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic">
-            {"{"} ROMSTHO {"}"}
+          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic text-nowrap">
+            {"{ ROMSTHO }"}
           </h1>
           <div className="flex gap-4">
             {games.length > 0 && (

@@ -22,7 +22,7 @@ export function ContinuePlaying({
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-black from-1% via-black/10 to-black to-99%" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/90 to-black" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_max(80vw,30vh)_at_center,_var(--tw-gradient-stops))] from-transparent via-black/90 to-black" />
       <div className="space-y-2 absolute top-20 ml-8 p-8 w-full md:w-2/3 lg:w-1/2">
         <h2 className="text-xl font-bold mb-2 tracking-normal">
           {random

@@ -33,7 +33,7 @@ declare global {
 }
 
 export enum Intent {
-  RemoveBorrowLock = "remove-borrow-lock",
+  RemoveBorrowVoucher = "remove-borrow-voucher",
 }
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -64,7 +64,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
-  if (game.borrowedBy?.id !== user.id)
+  if (game.borrowedBy && game.borrowedBy?.id !== user.id)
     throw redirect(`/details/${game.system.title}/${game.id}`);
 
   let fileData = game.file.toString("base64");
@@ -88,20 +88,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     selectedSystem: game.system.title,
     title: game.title,
     emulatorConfig,
-    clientIntent: Intent.RemoveBorrowLock,
+    clientIntent: Intent.RemoveBorrowVoucher,
   };
 }
 
-let RemoveBorrowLock = z.object({
-  intent: z.literal(Intent.RemoveBorrowLock),
+let RemoveBorrowVoucher = z.object({
+  intent: z.literal(Intent.RemoveBorrowVoucher),
   gameId: z.number(),
   borrowerId: z.number().optional(),
 });
 
-type RemoveBorrowLock = z.infer<typeof RemoveBorrowLock>;
+type RemoveBorrowVoucher = z.infer<typeof RemoveBorrowVoucher>;
 
-async function removeBorrowLock(
-  submission: Submission<RemoveBorrowLock>,
+async function removeBorrowVoucher(
+  submission: Submission<RemoveBorrowVoucher>,
   userId: number
 ) {
   if (submission.status !== "success") {
@@ -128,15 +128,15 @@ export async function action({ request }: ActionFunctionArgs) {
   let formData = await request.formData();
 
   let submission = parseWithZod(formData, {
-    schema: RemoveBorrowLock,
+    schema: RemoveBorrowVoucher,
   });
 
-  await removeBorrowLock(submission, user.id);
+  await removeBorrowVoucher(submission, user.id);
   return null;
 }
 
 export default function Play() {
-  let data = useLoaderData<typeof loader>();
+  let data: any = useLoaderData<typeof loader>(); // RR7 can't come soon enough
   let emulatorInitialized = useRef(false);
   let fetcher = useFetcher({ key: data.clientIntent });
 

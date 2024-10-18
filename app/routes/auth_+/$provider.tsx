@@ -29,9 +29,9 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
       "Set-Cookie": await commitSession(session),
     });
 
-    let settings = await prisma.settings.findFirst();
+    let isOnboarded = await prisma.settings.findFirst();
 
-    if (settings == null) {
+    if (isOnboarded == null) {
       return redirect("/onboarding", { headers });
     }
     return redirect("/explore", { headers });

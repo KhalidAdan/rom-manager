@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import { existsSync } from "node:fs";
 import path from "path";
+import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "./const";
 
 export function bufferToStringIfExists(
   file: Buffer | null
@@ -43,50 +44,40 @@ interface Game {
 }
 
 export function filterOutUnsupportedFileTypes(
-  str: string[],
-  extensions: string[]
-) {
-  return str.filter((file) => extensions.includes(path.extname(file)));
-}
-
-export function findUniqueFileNames(storedFiles: string[], files: string[]) {
-  let filenamesSet = new Set(storedFiles);
-  return files.filter((file) => !filenamesSet.has(path.basename(file)));
-}
-
-export function processFilePathsIntoGameObjects(
-  files: string[],
-  extensions: string[]
-) {
-  return filterOutUnsupportedFileTypes(files, extensions).map((file) => {
-    if (typeof file !== "string") {
-      throw new Error("Received a non-string for ROMs on server");
-    }
-
-    let extension = path.extname(file);
-    let fileName = path.basename(file);
-    let title = prettifyROMTitles(file);
-
-    return {
-      fileName,
-      title: title,
-      location: file,
-      releaseDate: null, // IGDB
-      coverArt: null, // IGDB
-      backgroundImage: null, // IGDB
-      summary: "", // IGDB
-      createdAt: new Date(),
-      updatedAt: null,
-      system: {
-        title: extension === ".sfc" ? "SNES" : extension.toUpperCase().slice(1),
-        extension,
-      },
+  files: {
+    title: string;
+    fileName: string;
+    file: ArrayBuffer;
+    system: {
+      extension: string;
+      title: string;
     };
-  });
+  }[],
+  extensions: string[]
+) {
+  return files.filter((file) =>
+    extensions.includes(path.extname(file.fileName).toLowerCase())
+  );
+}
+
+export function findUniqueFileNames(
+  storedFiles: string[],
+  files: {
+    title: string;
+    fileName: string;
+    file: ArrayBuffer;
+    system: {
+      extension: string;
+      title: string;
+    };
+  }[]
+) {
+  let storedFilesSet = new Set(storedFiles);
+  return files.filter((file) => !storedFilesSet.has(file.fileName));
 }
 
 function prettifyROMTitles(filePath: string): string {
-  const fileName = filePath.split("\\").reverse().at(0);
+  let fileName = path.basename(filePath, path.extname(filePath));
   if (!fileName) {
     throw new Error("Invalid file path");
   }
@@ -102,10 +93,31 @@ function prettifyROMTitles(filePath: string): string {
   return title;
 }
 
-export function processGames(allFiles: string[], extensions: string[]): Game[] {
-  return processFilePathsIntoGameObjects(allFiles, extensions).map((game) => ({
-    ...game,
-    fileName: game.fileName,
-    title: game.title,
-  }));
+export async function processUploadedDirectory(
+  files: File[],
+  supportedExtensions: string[]
+) {
+  let processedFiles = [];
+
+  for (let i = 0; i < files.length; i++) {
+    let file = files[i];
+    let extension = path.extname(file.name).toLowerCase();
+
+    if (supportedExtensions.includes(extension)) {
+      let system = SUPPORTED_SYSTEMS_WITH_EXTENSIONS.find(
+        (sys) => sys.extension === extension
+      );
+
+      if (system) {
+        processedFiles.push({
+          title: prettifyROMTitles(file.name),
+          fileName: path.basename(file.name),
+          file: await file.arrayBuffer(),
+          system: system,
+        });
+      }
+    }
+  }
+
+  return processedFiles;
 }
