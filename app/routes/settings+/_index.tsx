@@ -27,7 +27,7 @@ import {
   findUniqueFileNames,
   processUploadedDirectory,
 } from "@/lib/fs.server";
-import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
+import { processQueuedGames, queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import {
@@ -177,10 +177,7 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
     (system) => system.extension
   );
 
-  let [accessToken, rawDiskFiles] = await Promise.all([
-    getIGDBAccessToken(),
-    processUploadedDirectory(roms, extensions),
-  ]);
+  let rawDiskFiles = await processUploadedDirectory(roms, extensions);
 
   let dbFiles = await prisma.game.findMany({
     select: {
@@ -195,12 +192,12 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
     allFiles.map((file) => file)
   );
 
-  console.log("files to be uploaded", newFiles);
-
+  console.log("Files to be queued for processing:", newFiles);
+  await queueGamesForProcessing(newFiles);
   try {
-    console.log("processing transaction");
-    await scrapeRoms(accessToken, newFiles);
-    console.log("Folder Scanning complete!");
+    console.log("Starting processing of files...");
+    let processedCount = await processQueuedGames(150);
+    console.log(`ROM processing complete! Processed ${processedCount} files.`);
 
     return redirect("/explore");
   } catch (error) {
@@ -330,7 +327,7 @@ export default function SettingsPage() {
 
   let [form, fields] = useForm({
     constraint: getZodConstraint(FolderScanSchema),
-    shouldValidate: "onBlur",
+    shouldValidate: "onSubmit",
     onValidate({ formData }) {
       return parseWithZod(formData, { schema: FolderScanSchema });
     },

@@ -357,8 +357,8 @@ export default function RomDetails() {
             Go Back
           </Button>
         </div>
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="flex-shrink-0">
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex-shrink-0 bg-black/40 rounded lg:rounded-none">
             <img
               src={
                 coverArt
@@ -366,7 +366,7 @@ export default function RomDetails() {
                   : "https://placehold.co/540x720"
               }
               alt={title}
-              className="aspect-[3/4] rounded-lg shadow-lg w-[540px] h-[720px]"
+              className="aspect-video w-full h-auto object-contain lg:aspect-[3/4] lg:w-[540px] lg:h-[720px] rounded-lg shadow-lg"
             />
           </div>
 
@@ -383,7 +383,7 @@ export default function RomDetails() {
                     to be borrowed. Revoking their lock will remove them from
                     their play session.
                   </p>
-                  {user.roleId < borrowedBy.roleId && (
+                  {user.roleId > borrowedBy.roleId && (
                     <Form
                       method="POST"
                       action={`/play/${system.title}/${id}`}
@@ -414,7 +414,7 @@ export default function RomDetails() {
                 {system.title}
               </Badge>
             </div>
-            <div className="w-full flex items-start justify-between gap-x-4">
+            <div className="w-full flex flex-col lg:flex-row items-start justify-between gap-x-4">
               <h1 className="flex items-center gap-4 text-5xl mb-2 font-serif max-w-2xl">
                 {title}
               </h1>
@@ -519,7 +519,7 @@ export default function RomDetails() {
                 ? summary.slice(0, 325) + `...`
                 : summary}
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
               {!borrowedBy ? (
                 <Link
                   to={`/play/${system.title}/${id}`}

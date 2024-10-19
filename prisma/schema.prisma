@@ -129,3 +129,19 @@ model GameStats {
   @@unique([userId, gameId])
   @@map("game_stats")
 }
+
+model MetadataJob {
+  id              Int      @id @default(autoincrement())
+  title           String
+  fileName        String
+  file            Bytes
+  systemTitle     String
+  systemExtension String
+  status          String // 'PENDING', 'PROCESSING', 'COMPLETED', or 'FAILED'
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@map("metadata_job")
+}

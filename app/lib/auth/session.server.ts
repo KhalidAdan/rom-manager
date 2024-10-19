@@ -4,15 +4,14 @@ import { createCookieSessionStorage } from "@remix-run/node";
 import { prisma } from "../prisma.server";
 import { getSessionExpirationDate } from "./auth.server";
 
-// export the whole sessionStorage object
 export let sessionStore = createCookieSessionStorage({
   cookie: {
-    name: "_session", // use any name you want here
-    sameSite: "lax", // this helps with CSRF
-    path: "/", // remember to add this so the cookie will work in all routes
-    httpOnly: true, // for security reasons, make this cookie http only
-    secrets: [process.env.SESSION_SECRET], // replace this with an actual secret
-    secure: process.env.NODE_ENV === "production", // enable this in prod only
+    name: "_session",
+    sameSite: "lax",
+    path: "/",
+    httpOnly: true,
+    secrets: [process.env.SESSION_SECRET],
+    // secure: process.env.NODE_ENV === "production", //! Not using https on tailscale, and this will never run on the public internet
   },
 });
 
@@ -25,5 +24,4 @@ export async function makeSession(userId: User["id"]) {
   });
 }
 
-// you can also export the methods individually for your own usage
 export let { getSession, commitSession, destroySession } = sessionStore;

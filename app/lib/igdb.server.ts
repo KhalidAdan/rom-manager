@@ -7,7 +7,6 @@ import {
 } from "@/lib/const";
 import { z } from "zod";
 import { MAX_UPLOAD_SIZE } from "./const";
-import { prisma } from "./prisma.server";
 
 let Artwork = z.object({
   id: z.number(),
@@ -177,79 +176,4 @@ limit 1;`.trim(),
       ? Buffer.from(await backgroundImage.arrayBuffer())
       : undefined,
   };
-}
-
-export async function scrapeRoms(
-  accessToken: string,
-  games: {
-    title: string;
-    fileName: string;
-    file: ArrayBuffer;
-    system: { title: string; extension: string };
-  }[]
-) {
-  return await prisma.$transaction(
-    async (txn) => {
-      for (let { title, fileName, file, system } of games) {
-        console.log(`--- Processing: ${title}`);
-
-        let game = await fetchGameMetadata(
-          process.env.TWITCH_CLIENT_ID,
-          accessToken,
-          title,
-          system.title
-        );
-
-        await txn.game.create({
-          data: {
-            title: game.title ?? title,
-            fileName,
-            file: Buffer.from(file),
-            releaseDate: game.releaseDate ?? 0,
-            rating: game.total_rating,
-            summary: game.summary ?? "",
-            coverArt: game.coverArt,
-            backgroundImage: game.backgroundImage,
-            system: {
-              connectOrCreate: {
-                where: {
-                  title: system.title,
-                },
-                create: {
-                  title: system.title,
-                  extension: system.extension,
-                },
-              },
-            },
-            gameGenres: game.genres
-              ? {
-                  create: game.genres.map((genre) => ({
-                    genre: {
-                      connectOrCreate: {
-                        where: { name: genre.name },
-                        create: { name: genre.name },
-                      },
-                    },
-                  })),
-                }
-              : undefined,
-          },
-          include: {
-            system: true,
-          },
-        });
-
-        await sleep(250); // IGDB rate limit
-
-        console.log(`${title} completed processing and inserted`);
-      }
-    },
-    {
-      timeout: 80000,
-    }
-  );
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

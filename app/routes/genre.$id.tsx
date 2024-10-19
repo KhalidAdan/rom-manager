@@ -138,9 +138,7 @@ export default function GenrePage() {
             <GenericCarousel
               items={gamesInGenre}
               carouselClassName="w-full"
-              carouselContentClassName=""
-              carouselItemClassName="md:basis-1/2 lg:basis-1/3"
-              useAdaptiveSlidesToScroll={false}
+              useAdaptiveSlidesToScroll={true}
               renderItem={(game) => (
                 <StaticGameCard
                   id={game.id}
