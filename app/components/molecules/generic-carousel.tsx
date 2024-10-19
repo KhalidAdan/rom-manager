@@ -76,7 +76,6 @@ export function GenericCarousel<T>({
   }, [carouselItemClassName]);
 
   let slidesToScroll = useResponsiveSlideScroll(breakpoints);
-  console.log(slidesToScroll);
 
   return (
     <Carousel
