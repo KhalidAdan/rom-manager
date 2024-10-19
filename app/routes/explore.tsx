@@ -170,12 +170,12 @@ export default function Explore() {
 
   return (
     <main className="bg-black">
-      <div className="flex justify-between pt-10 px-16">
+      <div className="pt-10 px-4 sm:px-8 lg:px-16">
         <div className="w-full flex justify-between">
-          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic text-nowrap">
+          <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic text-nowrap text-center md:text-left w-full md:w-auto">
             {"{ ROMSTHO }"}
           </h1>
-          <div className="flex gap-4">
+          <div className="hidden md:flex gap-4">
             {games.length > 0 && (
               <Dialog>
                 <DialogTrigger asChild>
@@ -240,7 +240,7 @@ export default function Explore() {
           </div>
         </div>
       </div>
-      <div className="space-y-8">
+      <div className="relative space-y-8 pb-20">
         <ContinuePlaying
           lastPlayedGame={lastPlayedGame ?? (randomGame as any)}
           random={lastPlayedGame == undefined}

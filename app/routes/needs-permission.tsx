@@ -6,6 +6,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { authenticator } from "@/lib/auth/auth.server";
+import { LoaderFunctionArgs } from "@remix-run/node";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  return await authenticator.isAuthenticated(request, {
+    successRedirect: "/explore",
+    failureRedirect: "/authenticate",
+  });
+}
 
 export default function PendingActivation() {
   return (

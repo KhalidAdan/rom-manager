@@ -1,30 +1,26 @@
 import { useEffect, useState } from "react";
 
-export function useResponsiveSlideScroll() {
-  let [slidesToScroll, setSlidesToScroll] = useState<number>(4);
+type BreakpointConfig = {
+  breakpoint: number;
+  slidesToScroll: number;
+};
+
+export function useResponsiveSlideScroll(breakpoints: BreakpointConfig[]) {
+  let [slidesToScroll, setSlidesToScroll] = useState<number>(1);
 
   useEffect(() => {
     let handleResize = () => {
-      if (window.matchMedia("(min-width: 1280px)").matches) {
-        setSlidesToScroll(6);
-      } else if (window.matchMedia("(min-width: 1024px)").matches) {
-        setSlidesToScroll(5);
-      } else if (window.matchMedia("(min-width: 768px)").matches) {
-        setSlidesToScroll(4);
-      } else if (window.matchMedia("(min-width: 640px)").matches) {
-        setSlidesToScroll(3);
-      } else {
-        setSlidesToScroll(2);
-      }
+      let windowWidth = window.innerWidth;
+      let config =
+        breakpoints.find((b) => windowWidth >= b.breakpoint) ||
+        breakpoints[breakpoints.length - 1];
+      setSlidesToScroll(config.slidesToScroll);
     };
 
     handleResize();
     window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [breakpoints]);
 
   return slidesToScroll;
 }
