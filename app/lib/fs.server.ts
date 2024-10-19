@@ -118,6 +118,5 @@ export async function processUploadedDirectory(
       }
     }
   }
-
   return processedFiles;
 }

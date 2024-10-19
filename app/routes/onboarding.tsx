@@ -13,7 +13,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import { MAX_FILES, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import { processUploadedDirectory } from "@/lib/fs.server";
-import { getIGDBAccessToken, scrapeRoms } from "@/lib/igdb.server";
+import { queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
@@ -65,6 +65,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let settings = await prisma.settings.findFirst();
   if (settings?.onboardingComplete || user.roleId !== UserRoles.ADMIN)
     throw redirect("/explore");
+
+  return null;
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -95,24 +97,15 @@ export async function action({ request }: ActionFunctionArgs) {
   );
 
   try {
-    console.log("processing transaction");
-    let [accessToken, processedFiles] = await Promise.all([
-      getIGDBAccessToken(),
-      processUploadedDirectory(roms, extensions),
-    ]);
-
-    await scrapeRoms(accessToken, processedFiles);
-    await prisma.settings.create({
-      data: {
-        onboardingComplete: new Date(),
-      },
-    });
+    console.log("Onboarding started, queueing ROMs to be worked on...");
+    let processedFiles = await processUploadedDirectory(roms, extensions);
+    await queueGamesForProcessing(processedFiles);
 
     console.log("Onboarding complete!");
 
     console.log("Updated settings, onboarding complete!");
 
-    return redirect("/explore");
+    return redirect("/processing-status");
   } catch (error) {
     console.error("Onboarding transaction failed: ", error);
     return json(submission.reply(), { status: 500 });
@@ -122,7 +115,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Onboarding() {
   let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   let [form, fields] = useForm({
-    shouldValidate: "onBlur",
+    shouldValidate: "onSubmit",
     onValidate({ formData }) {
       return parseWithZod(formData, { schema: OnboardingSchema });
     },
