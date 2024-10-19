@@ -59,7 +59,7 @@ export function GenreCards({ genres }: { genres: Category[] }) {
         )}
         carouselClassName="w-full"
         carouselContentClassName="-ml-2 md:-ml-4"
-        carouselItemClassName="basis-full sm:basis-1/2 md:basis-1/3"
+        carouselItemClassName="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
         prevButtonClassName="h-12 w-12 rounded-none"
         nextButtonClassName="h-12 w-12 rounded-none"
         useAdaptiveSlidesToScroll={true}

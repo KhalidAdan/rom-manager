@@ -49,7 +49,7 @@ export function GenericCarousel<T>({
         slidesToScroll:
           classes
             .find((c) => c.startsWith("lg:basis-"))
-            ?.replace("lg:basis-1/", "") ?? "3",
+            ?.replace("lg:basis-1/", "") ?? "4",
       },
       {
         breakpoint: 768,

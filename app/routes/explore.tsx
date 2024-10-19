@@ -242,23 +242,27 @@ export default function Explore() {
       </div>
       <div className="relative space-y-8 pb-20">
         <ContinuePlaying
-          lastPlayedGame={lastPlayedGame ?? (randomGame as any)}
+          lastPlayedGame={lastPlayedGame ?? randomGame}
           random={lastPlayedGame == undefined}
         />
         <RomManager
-          games={games.filter((rom) => rom.system.title === "GBA") as any}
+          // @ts-expect-error
+          games={games.filter((rom) => rom.system.title === "GBA")}
           systemTitle={"GBA"}
         />
-        {settings.showCategoryRecs && <GenreCards genres={genres as any} />}
-        <RomManager
-          games={games.filter((rom) => rom.system.title === "SNES") as any}
-          systemTitle={"SNES"}
-        />
-        {settings.showDiscovery && (
-          <DiscoveryQueue games={discoveryQueue as any} />
+        {settings.showCategoryRecs && (
+          // @ts-expect-error
+          <GenreCards genres={genres} />
         )}
         <RomManager
-          games={games.filter((rom) => rom.system.title === "GBC") as any}
+          // @ts-expect-error
+          games={games.filter((rom) => rom.system.title === "SNES")}
+          systemTitle={"SNES"}
+        />
+        {settings.showDiscovery && <DiscoveryQueue games={discoveryQueue} />}
+        <RomManager
+          // @ts-expect-error
+          games={games.filter((rom) => rom.system.title === "GBC")}
           systemTitle={"GBC"}
         />
       </div>
