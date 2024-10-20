@@ -6,7 +6,7 @@ export function useLoadSaveFiles(
   useEffect(() => {
     if (!emulatorInitialized.current) return;
 
-    const initializeGameManager = () => {
+    let initializeGameManager = () => {
       if (window.EJS_emulator) {
         try {
           console.log("Attempting save file loading");

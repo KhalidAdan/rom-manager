@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useEventSource } from "remix-utils/sse/react";
 
 export function useReactiveGameLock(id: number) {
-  const { toast } = useToast();
+  let { toast } = useToast();
   let revokeMessage = useEventSource(`/resources/sse/${id}`, {
     event: "revoke",
   });

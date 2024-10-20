@@ -146,7 +146,7 @@ limit 1;`.trim(),
   let backgroundImage: Blob | undefined;
 
   if (game.cover) {
-    const coverResponse = await fetch(
+    let coverResponse = await fetch(
       "http:" + game.cover.url.replace("t_thumb", "t_cover_big")
     );
     if (coverResponse.ok) {
@@ -155,7 +155,7 @@ limit 1;`.trim(),
   }
 
   if (game.artworks && game.artworks.length > 0) {
-    const artworkResponse = await fetch(
+    let artworkResponse = await fetch(
       "http:" + game.artworks[0].url.replace("t_thumb", "t_1080p")
     );
     if (artworkResponse.ok) {

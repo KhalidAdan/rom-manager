@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
+import { bustCache } from "@/lib/cache.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
@@ -28,6 +29,7 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
 import {
   ActionFunctionArgs,
@@ -231,7 +233,10 @@ async function updateLastPlayed(
   return null;
 }
 
-async function deleteRom(submission: Submission<DeleteROM>) {
+async function deleteRom(
+  userId: User["id"],
+  submission: Submission<DeleteROM>
+) {
   if (submission.status !== "success") {
     return json(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
@@ -267,6 +272,7 @@ export async function action({ request }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: UpdateLastPlayed,
       });
+      bustCache(null, "explore");
 
       return await updateLastPlayed(submission, user.id);
     }
@@ -274,6 +280,7 @@ export async function action({ request }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
+      bustCache(null, "explore");
 
       return await updateMetadata(submission);
     }
@@ -281,8 +288,8 @@ export async function action({ request }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: DeleteROM,
       });
-
-      await deleteRom(submission);
+      bustCache(null, "explore");
+      await deleteRom(user.id, submission);
       return redirect(`/explore?redirect_reason=${Intent.DeleteRom}`);
     }
     default: {
