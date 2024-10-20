@@ -3,16 +3,15 @@ import { StaticGameCard } from "@/components/molecules/static-game-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
+import { cache, generateCacheKey } from "@/lib/cache.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
-import { LoaderFunctionArgs } from "@remix-run/node";
+import cachified from "@epic-web/cachified";
+import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  let user = await requireUser(request);
-  let genreId = params.id;
-
+async function fetchGenreInfo(genreId: string | undefined, userId: number) {
   if (!genreId) {
     throw new Response("Not Found", { status: 404 });
   }
@@ -55,7 +54,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   let gameStats = await prisma.gameStats.count({
     where: {
-      userId: user.id,
+      userId: userId,
       game: {
         gameGenres: {
           some: {
@@ -92,14 +91,39 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   };
 }
 
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  let user = await requireUser(request);
+  let genreId = params.id;
+
+  try {
+    if (!genreId) throw new Error("genreId could not be pulled from URL");
+
+    let genreInfo = await cachified({
+      key: generateCacheKey(user.id, "genre", genreId),
+      cache,
+      async getFreshValue() {
+        return await fetchGenreInfo(genreId, user.id);
+      },
+    });
+    return json(genreInfo);
+  } catch (error) {
+    return json({
+      error: `${error}`,
+    });
+  }
+}
+
 export default function GenrePage() {
+  let data = useLoaderData<typeof loader>();
+  if ("error" in data) return <div>Error occurred, {data.error}</div>;
+
   const {
     activeGenre,
     allGenres,
     gamesInGenre,
     gameStats,
     gamesPlayedPercentage,
-  } = useLoaderData<typeof loader>();
+  } = data;
 
   return (
     <div className="min-h-screen relative mt-8">

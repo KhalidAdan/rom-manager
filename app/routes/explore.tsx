@@ -14,9 +14,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
+import { cache, generateCacheKey } from "@/lib/cache.server";
+import { CACHE_SWR, CACHE_TTL } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
+import cachified from "@epic-web/cachified";
+import { User } from "@prisma/client";
 import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
@@ -79,84 +83,107 @@ function getDiscoveryQueue(games: any[], topGenres: any[]) {
   return shuffled.slice(0, 3);
 }
 
+async function fetchGameLibrary(user: User) {
+  let settings = await prisma.settings.findFirstOrThrow();
+
+  let [games, [randomGame], genres, lastPlayedGame] = await Promise.all([
+    prisma.game.findMany({
+      select: {
+        id: true,
+        title: true,
+        coverArt: true,
+        rating: true,
+        summary: true,
+        system: {
+          select: {
+            title: true,
+          },
+        },
+        gameGenres: {
+          select: {
+            genreId: true,
+          },
+        },
+      },
+    }),
+    prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
+    prisma.$queryRawTyped(getTopGenres()),
+    getLastPlayedGame(user.id, settings.spotlightIncompleteGame),
+  ]);
+  let topFiveGenres = genres.slice(0, 5);
+  let discoveryQueue = getDiscoveryQueue(games, topFiveGenres);
+
+  // Parallelize data transformations
+  const [
+    processedGames,
+    processedDiscoveryQueue,
+    processedGenres,
+    processedRandomGame,
+    processedLastPlayedGame,
+  ] = await Promise.all([
+    Promise.all(
+      games.map((game) => ({
+        ...game,
+        coverArt: bufferToStringIfExists(game.coverArt),
+      }))
+    ),
+    Promise.all(
+      discoveryQueue.map((d) => ({
+        ...d,
+        coverArt: bufferToStringIfExists(d.coverArt),
+      }))
+    ),
+    Promise.all(
+      genres.map((genre) => ({
+        ...genre,
+        count: Number(genre.count),
+        coverArt: bufferToStringIfExists(genre.coverArt),
+      }))
+    ),
+    {
+      ...randomGame,
+      backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
+    },
+    lastPlayedGame
+      ? {
+          id: lastPlayedGame.game.id,
+          title: lastPlayedGame.game.title,
+          summary: lastPlayedGame.game.summary,
+          system: lastPlayedGame.game.system.title,
+          backgroundImage: bufferToStringIfExists(
+            lastPlayedGame.game.backgroundImage
+          ),
+        }
+      : undefined,
+  ]);
+
+  return {
+    games: processedGames,
+    lastPlayedGame: processedLastPlayedGame,
+    randomGame: processedRandomGame,
+    settings,
+    discoveryQueue: processedDiscoveryQueue,
+    genres: processedGenres,
+  };
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  let settings = await prisma.settings.findFirstOrThrow();
   try {
-    let [games, [randomGame], genres] = await Promise.all([
-      prisma.game.findMany({
-        select: {
-          id: true,
-          title: true,
-          coverArt: true,
-          rating: true,
-          summary: true,
-          system: {
-            select: {
-              title: true,
-            },
-          },
-          gameGenres: {
-            select: {
-              genreId: true,
-            },
-          },
-        },
-      }),
-      prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
-      prisma.$queryRawTyped(getTopGenres()),
-    ]);
-    let topFiveGenres = genres.slice(0, 5);
-    let discoveryQueue = getDiscoveryQueue(games, topFiveGenres);
-
-    let lastPlayedGame: Awaited<ReturnType<typeof getLastPlayedGame>> =
-      await getLastPlayedGame(user.id, settings.spotlightIncompleteGame);
-
-    return json(
-      {
-        games: games.map((game) => {
-          return {
-            ...game,
-            coverArt: bufferToStringIfExists(game.coverArt),
-          };
-        }),
-        lastPlayedGame: lastPlayedGame
-          ? {
-              id: lastPlayedGame.game.id,
-              title: lastPlayedGame.game.title,
-              summary: lastPlayedGame.game.summary,
-              system: lastPlayedGame.game.system.title,
-              backgroundImage: bufferToStringIfExists(
-                lastPlayedGame.game.backgroundImage
-              ),
-            }
-          : undefined,
-        randomGame: {
-          ...randomGame,
-          backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
-        },
-        settings,
-        discoveryQueue: discoveryQueue.map((d) => ({
-          ...d,
-          coverArt: bufferToStringIfExists(d.coverArt),
-        })),
-        genres: genres.map((genre) => ({
-          ...genre,
-          count: Number(genre.count),
-          coverArt: bufferToStringIfExists(genre.coverArt),
-        })),
+    let data = await cachified({
+      key: generateCacheKey(user.id, "explore"),
+      cache,
+      async getFreshValue() {
+        return await fetchGameLibrary(user);
       },
-      {
-        headers: {
-          "Cache-Control": "max-age=3600, public",
-        },
-      }
-    );
-  } catch (error: unknown) {
-    console.error(error);
-    return {
+      ttl: CACHE_TTL,
+      swr: CACHE_SWR,
+    });
+    return json(data);
+  } catch (error) {
+    return json({
       error: `${error}`,
-    };
+    });
   }
 }
 
