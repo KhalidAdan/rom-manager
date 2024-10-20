@@ -52,7 +52,7 @@ export function useInitializeEmulator({
 
         emulatorInitialized.current = true;
 
-        const handlePopState = (_event: PopStateEvent) => {
+        let handlePopState = (_event: PopStateEvent) => {
           cleanUpFn();
         };
         window.addEventListener("popstate", handlePopState);

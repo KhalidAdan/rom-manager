@@ -69,7 +69,7 @@ async function fetchGenreInfo(genreId: string | undefined, userId: number) {
     throw new Response("Genre Not Found", { status: 404 });
   }
 
-  const gamesPlayedPercentage = Math.round(
+  let gamesPlayedPercentage = Math.round(
     (gameStats / gamesInGenre.length) * 100
   );
 
@@ -117,7 +117,7 @@ export default function GenrePage() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred, {data.error}</div>;
 
-  const {
+  let {
     activeGenre,
     allGenres,
     gamesInGenre,

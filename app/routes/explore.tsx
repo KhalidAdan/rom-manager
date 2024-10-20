@@ -75,11 +75,11 @@ async function getLastPlayedGame(
 }
 
 function getDiscoveryQueue(games: any[], topGenres: any[]) {
-  const topGenreIds = topGenres.map((genre) => genre.id);
-  const filteredGames = games.filter((game) =>
+  let topGenreIds = topGenres.map((genre) => genre.id);
+  let filteredGames = games.filter((game) =>
     game.gameGenres.some((gg: any) => topGenreIds.includes(gg.genreId))
   );
-  const shuffled = filteredGames.sort(() => 0.5 - Math.random());
+  let shuffled = filteredGames.sort(() => 0.5 - Math.random());
   return shuffled.slice(0, 3);
 }
 
@@ -114,7 +114,7 @@ async function fetchGameLibrary(user: User) {
   let discoveryQueue = getDiscoveryQueue(games, topFiveGenres);
 
   // Parallelize data transformations
-  const [
+  let [
     processedGames,
     processedDiscoveryQueue,
     processedGenres,
@@ -193,7 +193,7 @@ export default function Explore() {
 
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;
-  const fetcher = useFetcher({ key: "update-last-played-game" });
+  let fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
     <main className="bg-black">
