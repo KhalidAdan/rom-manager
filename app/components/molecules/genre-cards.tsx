@@ -25,7 +25,7 @@ const gradients = [
 
 export function GenreCards({ genres }: { genres: Category[] }) {
   return (
-    <div className="mx-4 sm:mx-8 lg:mx-16">
+    <div className=" px-4 sm:px-8 lg:px-16 xl:px-20 2xl:max-w-[1900px] 2xl:mx-auto">
       <h2 className="text-2xl font-semibold mb-4">Categories for You</h2>
       <GenericCarousel
         items={genres}
@@ -59,7 +59,7 @@ export function GenreCards({ genres }: { genres: Category[] }) {
         )}
         carouselClassName="w-full"
         carouselContentClassName="-ml-2 md:-ml-4"
-        carouselItemClassName="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4"
+        carouselItemClassName="basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 pl-0"
         prevButtonClassName="h-12 w-12 rounded-none"
         nextButtonClassName="h-12 w-12 rounded-none"
         useAdaptiveSlidesToScroll={true}

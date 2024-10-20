@@ -3,7 +3,13 @@ import { StaticGameCard } from "@/components/molecules/static-game-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
-import { cache, generateCacheKey } from "@/lib/cache.server";
+import {
+  cache,
+  generateCacheKey,
+  generateETag,
+  getGlobalVersion,
+  updateGlobalVersion,
+} from "@/lib/cache.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
@@ -105,8 +111,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         return await fetchGenreInfo(genreId, user.id);
       },
     });
-    return json(genreInfo);
+    return json(genreInfo, {
+      headers: {
+        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+        ETag: `"${generateETag(genreInfo)}"`,
+        "X-Version": getGlobalVersion().toString(),
+      },
+    });
   } catch (error) {
+    updateGlobalVersion();
     return json({
       error: `${error}`,
     });

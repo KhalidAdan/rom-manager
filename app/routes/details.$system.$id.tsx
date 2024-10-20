@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
-import { bustCache } from "@/lib/cache.server";
+import { bustCache, updateGlobalVersion } from "@/lib/cache.server";
 import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
@@ -29,7 +29,6 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import { User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
 import {
   ActionFunctionArgs,
@@ -166,6 +165,11 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
   let { id, title, releaseDate, coverArt, backgroundImage, summary } =
     submission.value;
 
+  if (coverArt instanceof File || backgroundImage instanceof File) {
+    updateGlobalVersion();
+    bustCache(null, "explore");
+  }
+
   await prisma.game.update({
     where: { id },
     data: {
@@ -233,22 +237,23 @@ async function updateLastPlayed(
   return null;
 }
 
-async function deleteRom(
-  userId: User["id"],
-  submission: Submission<DeleteROM>
-) {
+async function deleteRom(submission: Submission<DeleteROM>) {
   if (submission.status !== "success") {
     return json(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
 
+  updateGlobalVersion();
+  bustCache(null, "explore");
+
   let { id } = submission.value;
-  return await prisma.game.delete({
+  await prisma.game.delete({
     where: {
       id,
     },
   });
+  return null;
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -272,25 +277,22 @@ export async function action({ request }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: UpdateLastPlayed,
       });
-      bustCache(null, "explore");
 
-      return await updateLastPlayed(submission, user.id);
+      await updateLastPlayed(submission, user.id);
     }
     case Intent.UpdateMetadata: {
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
-      bustCache(null, "explore");
 
-      return await updateMetadata(submission);
+      await updateMetadata(submission);
     }
     case Intent.DeleteRom: {
       let submission = parseWithZod(formData, {
         schema: DeleteROM,
       });
-      bustCache(null, "explore");
-      await deleteRom(user.id, submission);
-      return redirect(`/explore?redirect_reason=${Intent.DeleteRom}`);
+
+      await deleteRom(submission);
     }
     default: {
       throw new Error("Unknown intent: " + intent);

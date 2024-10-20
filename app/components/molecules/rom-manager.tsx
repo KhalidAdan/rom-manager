@@ -17,7 +17,7 @@ type RomManagerType = {
 
 export default function RomManager({ games, systemTitle }: RomManagerType) {
   return (
-    <div className="mx-4 sm:mx-8 lg:mx-16">
+    <div className="px-4 sm:px-8 lg:px-16 xl:px-20 2xl:max-w-[1900px] 2xl:mx-auto">
       <h2 className="text-2xl font-semibold mb-2">{systemTitle}</h2>
       <GenericCarousel<RomType>
         items={games}

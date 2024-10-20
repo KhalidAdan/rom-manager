@@ -14,7 +14,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
-import { cache, generateCacheKey } from "@/lib/cache.server";
+import {
+  cache,
+  generateCacheKey,
+  generateETag,
+  getGlobalVersion,
+  updateGlobalVersion,
+} from "@/lib/cache.server";
 import { CACHE_SWR, CACHE_TTL } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
@@ -179,8 +185,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ttl: CACHE_TTL,
       swr: CACHE_SWR,
     });
-    return json(data);
+    return json(data, {
+      headers: {
+        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+        ETag: `"${generateETag(data)}"`,
+        "X-Version": getGlobalVersion().toString(),
+      },
+    });
   } catch (error) {
+    updateGlobalVersion();
     return json({
       error: `${error}`,
     });
@@ -197,7 +210,7 @@ export default function Explore() {
 
   return (
     <main className="bg-black">
-      <div className="pt-10 px-4 sm:px-8 lg:px-16">
+      <div className="pt-10 px-4 sm:px-8 lg:px-16 xl:px-20 2xl:max-w-[1900px] 2xl:mx-auto">
         <div className="w-full flex justify-between">
           <h1 className="text-2xl font-bold mb-4 tracking-tight font-mono italic text-nowrap text-center md:text-left w-full md:w-auto">
             {"{ ROMSTHO }"}

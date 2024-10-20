@@ -12,6 +12,20 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import interItalic from "/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf";
+import interRegular from "/fonts/Inter/Inter-VariableFont_opsz,wght.ttf";
+
+import instrumentSansItalic from "/fonts/InstrumentSans/InstrumentSans-Italic-VariableFont_wdth,wght.ttf";
+import instrumentSansRegular from "/fonts/InstrumentSans/InstrumentSans-VariableFont_wdth,wght.ttf";
+
+import instrumentSerifItalic from "/fonts/InstrumentSerif/InstrumentSerif-Italic.ttf";
+import instrumentSerifRegular from "/fonts/InstrumentSerif/InstrumentSerif-Regular.ttf";
+
+import spaceMonoBold from "/fonts/SpaceMono/SpaceMono-Bold.ttf";
+import spaceMonoBoldItalic from "/fonts/SpaceMono/SpaceMono-BoldItalic.ttf";
+import spaceMonoItalic from "/fonts/SpaceMono/SpaceMono-Italic.ttf";
+import spaceMonoRegular from "/fonts/SpaceMono/SpaceMono-Regular.ttf";
+
 import { Toaster } from "./components/ui/toaster";
 import { requireUser } from "./lib/auth/auth.server";
 import { UserRoles } from "./lib/auth/providers.server";
@@ -21,27 +35,73 @@ import { cn } from "./lib/utils";
 import "./tailwind.css";
 
 export let links: LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
+    rel: "preload",
+    href: interRegular as "font",
+    type: "font/ttf",
     crossOrigin: "anonymous",
   },
   {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    rel: "preload",
+    href: interItalic as "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
   },
   {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap",
+    rel: "preload",
+    href: instrumentSansRegular,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
   },
   {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap",
+    rel: "preload",
+    href: instrumentSansItalic,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
   },
   {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap",
+    rel: "preload",
+    href: instrumentSerifRegular,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "preload",
+    href: instrumentSerifItalic,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "preload",
+    href: spaceMonoRegular,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "preload",
+    href: spaceMonoBold,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "preload",
+    href: spaceMonoItalic,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "preload",
+    href: spaceMonoBoldItalic,
+    as: "font",
+    type: "font/ttf",
+    crossOrigin: "anonymous",
   },
 ];
 

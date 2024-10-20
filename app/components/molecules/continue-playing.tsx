@@ -20,7 +20,7 @@ export function ContinuePlaying({
   random,
 }: ContinuePlayingProps) {
   return (
-    <div className="relative h-full lg:min-h-[70vh] overflow-hidden">
+    <div className="relative min-h-0 md:min-h-[500px] lg:min-h-[600px] xl:min-h-[700px] 2xl:min-h-[700px] 3xl:min-h-[900px] overflow-hidden">
       <div className="absolute inset-0 z-0">
         <img
           className="object-cover w-full h-full"
@@ -35,14 +35,16 @@ export function ContinuePlaying({
         <div className="absolute inset-0 bg-[radial-gradient(circle_max(80vw,30vh)_at_center,_var(--tw-gradient-stops))] from-transparent via-black/90 to-black" />
       </div>
 
-      <div className="relative z-10 flex flex-col justify-end h-full p-4 sm:p-8 lg:p-16">
+      <div className="relative z-10 flex flex-col justify-end h-full p-4 sm:p-8 lg:p-16 xl:p-20 2xl:max-w-[1900px] 2xl:mx-auto">
         <div className="w-full lg:w-2/3 xl:w-1/2 dspace-y-4 md:space-y-6 mt-20">
           <h2 className="text-xl font-bold tracking-normal">
             {random
               ? "We picked this for you, give it a try!"
               : "Pick up where you left off!"}
           </h2>
-          <h3 className="font-serif text-5xl sm:text-7xl">{title}</h3>
+          <h3 className="font-serif text-5xl sm:text-7xl 2xl:text-8xl 3xl:text-9xl">
+            {title}
+          </h3>
           <Badge variant="outline" className="rounded">
             {system}
           </Badge>
