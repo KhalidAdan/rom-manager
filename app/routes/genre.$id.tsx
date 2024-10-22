@@ -5,11 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
 import {
   cache,
-  generateCacheKey,
   generateETag,
   getGlobalVersion,
   updateGlobalVersion,
-} from "@/lib/cache.server";
+} from "@/lib/cache/cache.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
@@ -105,7 +104,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     if (!genreId) throw new Error("genreId could not be pulled from URL");
 
     let genreInfo = await cachified({
-      key: generateCacheKey(user.id, "genre", genreId),
+      key: `genre-${genreId}`,
       cache,
       async getFreshValue() {
         return await fetchGenreInfo(genreId, user.id);

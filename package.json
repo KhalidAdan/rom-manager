@@ -41,6 +41,7 @@
     "embla-carousel-react": "^8.3.0",
     "intl-parse-accept-language": "^1.0.0",
     "isbot": "^4.1.0",
+    "localforage": "^1.10.0",
     "lru-cache": "^11.0.1",
     "lucide-react": "^0.447.0",
     "prisma": "^5.21.1",

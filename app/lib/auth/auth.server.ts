@@ -56,7 +56,7 @@ export async function getUser(request: Request) {
 }
 
 export async function getUserId(request: Request) {
-  let { user, cookie } = await getUser(request);
+  let { user } = await getUser(request);
   if (user == null) {
     return null;
   }

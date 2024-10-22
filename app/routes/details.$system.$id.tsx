@@ -17,9 +17,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
-import { bustCache, updateGlobalVersion } from "@/lib/cache.server";
-import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
-import { bufferToStringIfExists } from "@/lib/fs.server";
+import {
+  bustCache,
+  cache,
+  generateETag,
+  getGlobalVersion,
+  updateGlobalVersion,
+} from "@/lib/cache/cache.server";
+import {
+  CACHE_SWR,
+  CACHE_TTL,
+  MAX_UPLOAD_SIZE,
+  ROM_MAX_SIZE,
+} from "@/lib/const";
+import { getGameDetailsData } from "@/lib/game-library";
 import { prisma } from "@/lib/prisma.server";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
@@ -29,6 +40,7 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import cachified from "@epic-web/cachified";
 import { Label } from "@radix-ui/react-label";
 import {
   ActionFunctionArgs,
@@ -106,53 +118,34 @@ type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  let game = await prisma.game.findFirst({
-    where: {
-      id: Number(params.id),
-    },
-    select: {
-      id: true,
-      title: true,
-      releaseDate: true,
-      backgroundImage: true,
-      summary: true,
-      coverArt: true,
-      borrowedBy: {
-        select: {
-          id: true,
-          roleId: true,
-        },
-      },
-      system: {
-        select: {
-          id: true,
-          title: true,
-        },
-      },
-      gameGenres: {
-        select: {
-          genre: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
+  let gameId = Number(params.id);
 
-  if (!game) throw new Error("Where the game at dog?");
+  try {
+    let game = await cachified({
+      key: `game-${gameId}`,
+      cache,
+      async getFreshValue() {
+        return await getGameDetailsData(gameId, user);
+      },
+      ttl: CACHE_TTL,
+      swr: CACHE_SWR,
+    });
 
-  if (game.borrowedBy && game.borrowedBy.id !== user.id) {
-    throw redirect(`/details/${game.system.title}/${game.id}`);
+    if (game.borrowedBy && game.borrowedBy.id !== user.id) {
+      throw redirect(`/details/${game.system.title}/${gameId}`);
+    }
+
+    return json(game, {
+      headers: {
+        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+        ETag: `"${generateETag(game)}"`,
+        "X-Version": getGlobalVersion().toString(),
+      },
+    });
+  } catch (error) {
+    updateGlobalVersion();
+    return json({ error: `${error}` });
   }
-
-  return json({
-    ...game,
-    coverArt: bufferToStringIfExists(game.coverArt),
-    backgroundImage: bufferToStringIfExists(game.backgroundImage),
-    user,
-  });
 }
 
 async function updateMetadata(submission: Submission<UpdateMetadata>) {
@@ -167,7 +160,7 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
 
   if (coverArt instanceof File || backgroundImage instanceof File) {
     updateGlobalVersion();
-    bustCache(null, "explore");
+    bustCache("explore");
   }
 
   await prisma.game.update({
@@ -245,7 +238,7 @@ async function deleteRom(submission: Submission<DeleteROM>) {
   }
 
   updateGlobalVersion();
-  bustCache(null, "explore");
+  bustCache("explore");
 
   let { id } = submission.value;
   await prisma.game.delete({
@@ -301,6 +294,9 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function RomDetails() {
+  let data = useLoaderData<typeof loader>();
+  if ("error" in data) return <div>Error occurred, {data.error}</div>;
+
   let {
     id,
     title,
@@ -312,7 +308,7 @@ export default function RomDetails() {
     gameGenres,
     borrowedBy,
     user,
-  } = useLoaderData<typeof loader>();
+  } = data;
   let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
     // seconds to milliseconds, IGDB uses seconds
     let date = releaseDate ? new Date(releaseDate * 1000) : undefined;

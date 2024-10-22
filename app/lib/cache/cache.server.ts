@@ -43,21 +43,6 @@ export let cache: Cache = {
   },
 };
 
-export function generateCacheKey(userId: number, ...routeParts: string[]) {
-  return `${userId}:${routeParts.join("/")}`;
-}
-
-export function bustCache(userId: number | null, ...routeParts: string[]) {
-  let routePattern = routeParts.join("/");
-
-  if (userId) {
-    let key = generateCacheKey(userId, ...routeParts);
-    cache.delete(key);
-  } else {
-    // If no userId provided, bust cache for all users matching the route pattern
-    let keysToDelete = Array.from(lruCache.keys()).filter((key) =>
-      key.includes(`:${routePattern}`)
-    );
-    keysToDelete.forEach((key) => cache.delete(key));
-  }
+export function bustCache(cacheKey: string) {
+  cache.delete(cacheKey);
 }

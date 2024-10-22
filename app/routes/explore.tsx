@@ -15,172 +15,37 @@ import {
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
 import {
+  getGameLibraryCache,
+  setGameLibraryCache,
+} from "@/lib/cache/cache.client";
+import {
   cache,
-  generateCacheKey,
   generateETag,
   getGlobalVersion,
   updateGlobalVersion,
-} from "@/lib/cache.server";
-import { CACHE_SWR, CACHE_TTL } from "@/lib/const";
-import { bufferToStringIfExists } from "@/lib/fs.server";
-import { prisma } from "@/lib/prisma.server";
+} from "@/lib/cache/cache.server";
+import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
+import { getGameLibrary } from "@/lib/game-library";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
-import { User } from "@prisma/client";
-import { getRandomGame, getTopGenres } from "@prisma/client/sql";
 import { json, LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useFetcher, useLoaderData } from "@remix-run/react";
+import {
+  ClientLoaderFunctionArgs,
+  Link,
+  useFetcher,
+  useLoaderData,
+} from "@remix-run/react";
 import { Search } from "lucide-react";
 import { Intent } from "./details.$system.$id";
-
-async function getLastPlayedGame(
-  userId: number,
-  filterIncompleteGame: boolean
-) {
-  let andFilter = [
-    ...(filterIncompleteGame
-      ? [
-          {
-            game: {
-              backgroundImage: {
-                not: null,
-              },
-            },
-          },
-        ]
-      : []),
-  ];
-  return await prisma.gameStats.findFirst({
-    select: {
-      game: {
-        select: {
-          id: true,
-          title: true,
-          summary: true,
-          backgroundImage: true,
-          system: {
-            select: {
-              title: true,
-            },
-          },
-        },
-      },
-    },
-    where: {
-      AND: [
-        {
-          userId,
-        },
-        ...andFilter,
-      ],
-    },
-    orderBy: {
-      lastPlayedAt: "desc",
-    },
-  });
-}
-
-function getDiscoveryQueue(games: any[], topGenres: any[]) {
-  let topGenreIds = topGenres.map((genre) => genre.id);
-  let filteredGames = games.filter((game) =>
-    game.gameGenres.some((gg: any) => topGenreIds.includes(gg.genreId))
-  );
-  let shuffled = filteredGames.sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, 3);
-}
-
-async function fetchGameLibrary(user: User) {
-  let settings = await prisma.settings.findFirstOrThrow();
-
-  let [games, [randomGame], genres, lastPlayedGame] = await Promise.all([
-    prisma.game.findMany({
-      select: {
-        id: true,
-        title: true,
-        coverArt: true,
-        rating: true,
-        summary: true,
-        system: {
-          select: {
-            title: true,
-          },
-        },
-        gameGenres: {
-          select: {
-            genreId: true,
-          },
-        },
-      },
-    }),
-    prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
-    prisma.$queryRawTyped(getTopGenres()),
-    getLastPlayedGame(user.id, settings.spotlightIncompleteGame),
-  ]);
-  let topFiveGenres = genres.slice(0, 5);
-  let discoveryQueue = getDiscoveryQueue(games, topFiveGenres);
-
-  // Parallelize data transformations
-  let [
-    processedGames,
-    processedDiscoveryQueue,
-    processedGenres,
-    processedRandomGame,
-    processedLastPlayedGame,
-  ] = await Promise.all([
-    Promise.all(
-      games.map((game) => ({
-        ...game,
-        coverArt: bufferToStringIfExists(game.coverArt),
-      }))
-    ),
-    Promise.all(
-      discoveryQueue.map((d) => ({
-        ...d,
-        coverArt: bufferToStringIfExists(d.coverArt),
-      }))
-    ),
-    Promise.all(
-      genres.map((genre) => ({
-        ...genre,
-        count: Number(genre.count),
-        coverArt: bufferToStringIfExists(genre.coverArt),
-      }))
-    ),
-    {
-      ...randomGame,
-      backgroundImage: bufferToStringIfExists(randomGame.backgroundImage),
-    },
-    lastPlayedGame
-      ? {
-          id: lastPlayedGame.game.id,
-          title: lastPlayedGame.game.title,
-          summary: lastPlayedGame.game.summary,
-          system: lastPlayedGame.game.system.title,
-          backgroundImage: bufferToStringIfExists(
-            lastPlayedGame.game.backgroundImage
-          ),
-        }
-      : undefined,
-  ]);
-
-  return {
-    games: processedGames,
-    lastPlayedGame: processedLastPlayedGame,
-    randomGame: processedRandomGame,
-    settings,
-    discoveryQueue: processedDiscoveryQueue,
-    genres: processedGenres,
-  };
-}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   try {
     let data = await cachified({
-      key: generateCacheKey(user.id, "explore"),
+      key: EXPLORE_CACHE_KEY,
       cache,
       async getFreshValue() {
-        return await fetchGameLibrary(user);
+        return await getGameLibrary(user);
       },
       ttl: CACHE_TTL,
       swr: CACHE_SWR,
@@ -197,6 +62,33 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({
       error: `${error}`,
     });
+  }
+}
+
+export async function clientLoader({
+  request,
+  serverLoader,
+}: ClientLoaderFunctionArgs) {
+  try {
+    let cached = await getGameLibraryCache(EXPLORE_CACHE_KEY);
+    if (cached) {
+      let serverVersion = request.headers.get("X-Version");
+      let isVersionMatch = cached.version === serverVersion;
+      let isFresh = Date.now() - cached.timestamp < CACHE_TTL;
+
+      if (isVersionMatch && isFresh) return cached.data;
+    }
+
+    // cache invalidated or no cache
+    let data = await serverLoader<typeof loader>();
+    let version = request.headers.get("X-Version") as string;
+
+    await setGameLibraryCache(EXPLORE_CACHE_KEY, data, version);
+
+    return data;
+  } catch (error) {
+    console.error("Client loader error:", error);
+    return serverLoader();
   }
 }
 

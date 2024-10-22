@@ -27,3 +27,5 @@ export const CATEGORY_PORT = 11;
 
 export const CACHE_TTL = 3_600_000; // ms in 1hr
 export const CACHE_SWR = 45_000;
+
+export const EXPLORE_CACHE_KEY = "/explore";
