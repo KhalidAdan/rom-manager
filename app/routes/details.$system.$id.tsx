@@ -296,7 +296,6 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function RomDetails() {
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred, {data.error}</div>;
-
   let {
     id,
     title,
