@@ -1,14 +1,22 @@
 import { cn } from "@/lib/utils";
 import { Link } from "@remix-run/react";
+import OptimizedBase64Image from "./optimized-image";
 
 type GameCardType = {
   id: number;
   title: string;
   coverArt?: string;
   systemTitle: string;
+  priorityIndex?: number;
 };
 
-export function GameCard({ id, title, coverArt, systemTitle }: GameCardType) {
+export function GameCard({
+  id,
+  title,
+  coverArt,
+  systemTitle,
+  priorityIndex,
+}: GameCardType) {
   return (
     <div
       className={cn(
@@ -19,16 +27,17 @@ export function GameCard({ id, title, coverArt, systemTitle }: GameCardType) {
         to={`/details/${systemTitle.toLowerCase()}/${id}`}
         prefetch="intent"
       >
-        <img
-          src={
+        <OptimizedBase64Image
+          width={300}
+          height={400}
+          base64={
             coverArt
               ? `data:image/jpeg;base64,${coverArt}`
               : "https://placehold.co/400x600"
           }
-          width={300}
-          height={400}
           alt={title}
           className="transition-transform duration-300 ease-in-out object-cover group-hover:scale-110 h-full"
+          priority={priorityIndex ? priorityIndex > 7 : false}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-0 group-hover:opacity-90 transition-opacity duration-300 p-4">
           <p className="absolute bottom-10 left-2 right-2 text-2xl font-medium text-center">
