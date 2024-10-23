@@ -124,6 +124,7 @@ body {
     --color-3: 210 100% 63%;
     --color-4: 195 100% 63%;
     --color-5: 90 100% 63%;
+    --ejs-primary-color: var(--muted-foreground) !important;
   }
   .dark {
     --background: 240 10% 3.9%;
@@ -155,6 +156,7 @@ body {
     --color-3: 210 100% 63%;
     --color-4: 195 100% 63%;
     --color-5: 90 100% 63%;
+    --ejs-primary-color: var(--muted-foreground) !important;
   }
 }
 

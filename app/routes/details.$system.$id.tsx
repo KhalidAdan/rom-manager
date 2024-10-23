@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import {
-  bustCache,
   cache,
   generateETag,
   getGlobalVersion,
@@ -158,11 +157,6 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
   let { id, title, releaseDate, coverArt, backgroundImage, summary } =
     submission.value;
 
-  if (coverArt instanceof File || backgroundImage instanceof File) {
-    updateGlobalVersion();
-    bustCache("explore");
-  }
-
   await prisma.game.update({
     where: { id },
     data: {
@@ -237,9 +231,6 @@ async function deleteRom(submission: Submission<DeleteROM>) {
     });
   }
 
-  updateGlobalVersion();
-  bustCache("explore");
-
   let { id } = submission.value;
   await prisma.game.delete({
     where: {
@@ -249,7 +240,7 @@ async function deleteRom(submission: Submission<DeleteROM>) {
   return null;
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
   let user = await requireUser(request);
   let contentType = request.headers.get("content-type");
   let formData: FormData;
@@ -271,24 +262,29 @@ export async function action({ request }: ActionFunctionArgs) {
         schema: UpdateLastPlayed,
       });
 
-      await updateLastPlayed(submission, user.id);
+      return await updateLastPlayed(submission, user.id);
     }
     case Intent.UpdateMetadata: {
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
       });
 
-      await updateMetadata(submission);
+      updateGlobalVersion();
+      return await updateMetadata(submission);
     }
     case Intent.DeleteRom: {
       let submission = parseWithZod(formData, {
         schema: DeleteROM,
       });
 
-      await deleteRom(submission);
+      updateGlobalVersion();
+      cache.delete("explore");
+      return await deleteRom(submission);
     }
     default: {
-      throw new Error("Unknown intent: " + intent);
+      throw new Error(
+        "Details/$System/$Id action. Unknown intent: '" + intent + "'"
+      );
     }
   }
 }
@@ -422,86 +418,90 @@ export default function RomDetails() {
               <h1 className="flex items-center gap-4 text-5xl mb-2 font-serif max-w-2xl">
                 {title}
               </h1>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline">Edit metadata</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Edit {title}'s metadata</DialogTitle>
-                    <DialogDescription>
-                      Make changes to metadata here. Click save when you're
-                      done.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Form
-                    {...getFormProps(form)}
-                    method="POST"
-                    className="grid gap-y-4"
-                    encType="multipart/form-data"
-                  >
-                    <Input {...getInputProps(fields.id, { type: "hidden" })} />
-                    <Input
-                      {...getInputProps(fields.intent, { type: "hidden" })}
-                    />
-                    <div className="grid gap-2">
-                      <Label htmlFor={fields.title.id}>Title</Label>
+              {user.roleId == 1 && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">Edit metadata</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit {title}'s metadata</DialogTitle>
+                      <DialogDescription>
+                        Make changes to metadata here. Click save when you're
+                        done.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form
+                      {...getFormProps(form)}
+                      method="POST"
+                      className="grid gap-y-4"
+                      encType="multipart/form-data"
+                    >
                       <Input
-                        {...getInputProps(fields.title, { type: "text" })}
-                      ></Input>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={fields.releaseDate.id}>
-                        Release Date
-                      </Label>
-                      <Input
-                        {...getInputProps(fields.releaseDate, {
-                          type: "hidden",
-                        })}
-                        value={expensiveDate && expensiveDate.getTime()}
+                        {...getInputProps(fields.id, { type: "hidden" })}
                       />
-                      <DatePicker
-                        date={expensiveDate}
-                        setDate={setExpensiveDate}
+                      <Input
+                        {...getInputProps(fields.intent, { type: "hidden" })}
                       />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
-                      <Input
-                        type="file"
-                        name={fields.coverArt.name}
-                        id={fields.coverArt.id}
-                      ></Input>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={fields.backgroundImage.id}>
-                        Background Image
-                      </Label>
-                      <Input
-                        type="file"
-                        name={fields.backgroundImage.name}
-                        id={fields.backgroundImage.id}
-                      ></Input>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={fields.summary.id}>Summary</Label>
-                      <Textarea
-                        rows={4}
-                        {...getInputProps(fields.summary, {
-                          type: "text",
-                        })}
-                      ></Textarea>
-                    </div>
-                  </Form>
+                      <div className="grid gap-2">
+                        <Label htmlFor={fields.title.id}>Title</Label>
+                        <Input
+                          {...getInputProps(fields.title, { type: "text" })}
+                        ></Input>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={fields.releaseDate.id}>
+                          Release Date
+                        </Label>
+                        <Input
+                          {...getInputProps(fields.releaseDate, {
+                            type: "hidden",
+                          })}
+                          value={expensiveDate && expensiveDate.getTime()}
+                        />
+                        <DatePicker
+                          date={expensiveDate}
+                          setDate={setExpensiveDate}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
+                        <Input
+                          type="file"
+                          name={fields.coverArt.name}
+                          id={fields.coverArt.id}
+                        ></Input>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={fields.backgroundImage.id}>
+                          Background Image
+                        </Label>
+                        <Input
+                          type="file"
+                          name={fields.backgroundImage.name}
+                          id={fields.backgroundImage.id}
+                        ></Input>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor={fields.summary.id}>Summary</Label>
+                        <Textarea
+                          rows={4}
+                          {...getInputProps(fields.summary, {
+                            type: "text",
+                          })}
+                        ></Textarea>
+                      </div>
+                    </Form>
 
-                  <DialogFooter className="w-full">
-                    <DeleteROMForm id={id} />
-                    <Button type="submit" form={form.id}>
-                      Save
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter className="w-full">
+                      <DeleteROMForm id={id} />
+                      <Button type="submit" form={form.id}>
+                        Save
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
             <p className="text-muted-foreground mb-4 text-lg">
               {expensiveDate &&

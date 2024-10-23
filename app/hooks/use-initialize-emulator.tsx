@@ -8,9 +8,9 @@ interface EmulatorConfig {
   EJS_gameName: string;
   EJS_startOnLoaded: boolean;
   EJS_pathtodata: string;
-  EJS_gameUrl: string;
-  EJS_emulator: any;
-  EJS_GameManager: any;
+  EJS_gameUrl?: string;
+  EJS_emulator?: any;
+  EJS_GameManager?: any;
 }
 
 interface EmulatorData {

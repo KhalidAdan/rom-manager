@@ -42,7 +42,3 @@ export let cache: Cache = {
     return lruCache.delete(key);
   },
 };
-
-export function bustCache(cacheKey: string) {
-  cache.delete(cacheKey);
-}

@@ -4,6 +4,7 @@ import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { updateGlobalVersion } from "@/lib/cache/cache.server";
 import { DATA_DIR } from "@/lib/const";
+import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
@@ -49,7 +50,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       id: true,
       file: true,
       fileName: true,
+      coverArt: true,
       title: true,
+      summary: true,
       system: {
         select: {
           title: true,
@@ -89,6 +92,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     file: fileData,
     selectedSystem: game.system.title,
     title: game.title,
+    summary: game.summary,
+    coverArt: bufferToStringIfExists(game.coverArt),
     emulatorConfig,
     clientIntent: Intent.RemoveBorrowVoucher,
   };
@@ -138,17 +143,17 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Play() {
-  let data: any = useLoaderData<typeof loader>(); // RR7 can't come soon enough
+  let data = useLoaderData<typeof loader>();
   let emulatorInitialized = useRef(false);
   let fetcher = useFetcher({ key: data.clientIntent });
 
   let cleanupEmulator = useCallback(() => {
     if (window.EJS_emulator) {
       window.EJS_emulator.callEvent("exit");
-      fetcher.submit(
-        { intent: data.clientIntent, gameId: data.id },
-        { method: "POST" }
-      );
+      // fetcher.submit(
+      //   { intent: data.clientIntent, gameId: data.id },
+      //   { method: "POST" }
+      // );
     }
   }, []);
 
@@ -172,8 +177,16 @@ export default function Play() {
   useLoadSaveFiles(emulatorInitialized);
 
   return (
-    <main>
-      <div id="game" className="h-full w-full bg-background"></div>
+    <main className="bg-muted/40 min-h-screen pt-6">
+      <div className="max-w-4xl aspect-[4/3] mx-auto bg-black rounded-2xl">
+        <div id="game" className="h-full w-full bg-background"></div>
+      </div>
+      <div className="max-w-4xl mx-auto mt-6 space-y-4">
+        <p className="text-5xl font-serif">{data.title}</p>
+        <p className="text xl text-muted-foreground leading-relaxed">
+          {data.summary}
+        </p>
+      </div>
       <fetcher.Form
         method="POST"
         action={`/play/${data.selectedSystem}/${data.id}`}
