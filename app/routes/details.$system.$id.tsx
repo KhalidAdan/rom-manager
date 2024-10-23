@@ -270,6 +270,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       updateGlobalVersion();
+      cache.delete(`game-${params.id}`);
       return await updateMetadata(submission);
     }
     case Intent.DeleteRom: {
