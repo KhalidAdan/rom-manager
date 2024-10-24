@@ -31,7 +31,6 @@ import { requireUser } from "./lib/auth/auth.server";
 import { UserRoles } from "./lib/auth/providers.server";
 import { getHints } from "./lib/client-hints";
 import { getTheme } from "./lib/theme.server";
-import { cn } from "./lib/utils";
 import "./tailwind.css";
 
 export let links: LinksFunction = () => [
@@ -133,7 +132,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("h-full w-full dark")}>
+    <html lang="en" className="h-full w-full dark select-none">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -14,11 +14,10 @@ import {
   LoaderFunctionArgs,
   redirect,
 } from "@remix-run/node";
-import { useBeforeUnload, useFetcher, useLoaderData } from "@remix-run/react";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useCallback, useRef } from "react";
 import { z } from "zod";
 
-// declare EmulatorJS global variables
 declare global {
   interface Window {
     EJS_player: string;
@@ -76,7 +75,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   let system = game.system.title.toLocaleLowerCase();
 
-  // Prepare EmulatorJS configuration
   let emulatorConfig = {
     EJS_player: "#game",
     EJS_gameName: game.fileName,
@@ -84,7 +82,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     EJS_core: system == "gbc" ? "gambatte" : system,
     EJS_pathtodata: DATA_DIR,
     EJS_startOnLoaded: true,
-    // We'll set EJS_gameUrl on the client side
   };
 
   return {
@@ -95,7 +92,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     summary: game.summary,
     coverArt: bufferToStringIfExists(game.coverArt),
     emulatorConfig,
-    clientIntent: Intent.RemoveBorrowVoucher,
   };
 }
 
@@ -119,6 +115,8 @@ async function removeBorrowVoucher(
 
   let { gameId } = submission.value;
 
+  console.log(gameId, userId);
+
   await prisma.game.update({
     where: {
       userId,
@@ -131,6 +129,8 @@ async function removeBorrowVoucher(
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  console.log("REMOVING BORROW VOUCHER");
+  console.log(request.url);
   let user = await requireUser(request);
   let formData = await request.formData();
 
@@ -145,15 +145,16 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Play() {
   let data = useLoaderData<typeof loader>();
   let emulatorInitialized = useRef(false);
-  let fetcher = useFetcher({ key: data.clientIntent });
+  let fetcher = useFetcher({ key: "remove-borrow-voucher" });
 
   let cleanupEmulator = useCallback(() => {
+    console.log("calling cleanup fn");
     if (window.EJS_emulator) {
       window.EJS_emulator.callEvent("exit");
-      // fetcher.submit(
-      //   { intent: data.clientIntent, gameId: data.id },
-      //   { method: "POST" }
-      // );
+      fetcher.submit(
+        { intent: "remove-borrow-voucher", gameId: data.id },
+        { method: "POST" }
+      );
     }
   }, []);
 
@@ -162,14 +163,6 @@ export default function Play() {
   useInitializeEmulator({
     emulatorInitialized,
     data,
-    cleanUpFn: cleanupEmulator,
-  });
-
-  useBeforeUnload((event: BeforeUnloadEvent) => {
-    cleanupEmulator();
-    event.preventDefault();
-    return (event.returnValue =
-      "Are you sure you want to exit? Your progress may be lost.");
   });
 
   useNavigationCleanup(cleanupEmulator);

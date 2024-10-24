@@ -1,22 +1,17 @@
-import { useNavigate } from "@remix-run/react";
 import { useEffect } from "react";
 
 export function useNavigationCleanup(cleanUpFn: () => void) {
-  let navigate = useNavigate();
   useEffect(() => {
-    let handleBeforeNavigate = (event: MouseEvent) => {
-      let target = event.target as HTMLAnchorElement;
-      if (target.tagName === "A" && target.href) {
-        event.preventDefault();
+    let handlePopState = (_event: PopStateEvent) => {
+      if (window.EJS_emulator) {
         cleanUpFn();
-        navigate(target.href);
       }
     };
 
-    document.body.addEventListener("click", handleBeforeNavigate);
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      document.body.removeEventListener("click", handleBeforeNavigate);
+      window.removeEventListener("popstate", handlePopState);
     };
-  }, [navigate, cleanUpFn]);
+  }, [cleanUpFn]);
 }
