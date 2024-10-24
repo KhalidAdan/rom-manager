@@ -2,6 +2,7 @@ import { useInitializeEmulator } from "@/hooks/use-initialize-emulator";
 import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
 import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
+import { UserRoles } from "@/lib/auth/providers.server";
 import { DATA_DIR } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
@@ -38,7 +39,7 @@ export enum Intent {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  if (!user.signupVerifiedAt) {
+  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
 

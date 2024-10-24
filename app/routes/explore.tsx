@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { requireUser } from "@/lib/auth/auth.server";
+import { UserRoles } from "@/lib/auth/providers.server";
 import {
   getGameLibraryCache,
   setGameLibraryCache,
@@ -21,6 +22,7 @@ import {
 import {
   cache,
   generateETag,
+  generateSecureAuthHash,
   getGlobalVersion,
   updateGlobalVersion,
 } from "@/lib/cache/cache.server";
@@ -40,7 +42,7 @@ import { Intent } from "./details.$system.$id";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  if (user.signupVerifiedAt == null) {
+  if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
   try {
@@ -53,11 +55,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ttl: CACHE_TTL,
       swr: CACHE_SWR,
     });
+
+    let authStateHash = generateSecureAuthHash(user);
+
     return json(data, {
       headers: {
         "Cache-Control": "max-age=900, stale-while-revalidate=3600",
         ETag: `"${generateETag(data)}"`,
         "X-Version": getGlobalVersion().toString(),
+        "X-Auth-State": authStateHash,
       },
     });
   } catch (error) {
@@ -76,17 +82,21 @@ export async function clientLoader({
     let cached = await getGameLibraryCache(EXPLORE_CACHE_KEY);
     if (cached) {
       let serverVersion = request.headers.get("X-Version");
-      let isVersionMatch = cached.version === serverVersion;
-      let isFresh = Date.now() - cached.timestamp < CACHE_TTL;
+      let serverAuthHash = request.headers.get("X-Auth-Hash");
 
-      if (isVersionMatch && isFresh) return cached.data;
+      const isVersionMatch = cached.version === serverVersion;
+      const isFresh = Date.now() - cached.timestamp < CACHE_TTL;
+      const isAuthMatch = cached.authHash === serverAuthHash;
+
+      if (isVersionMatch && isFresh && isAuthMatch) return cached.data;
     }
 
     // cache invalidated or no cache
     let data = await serverLoader<typeof loader>();
     let version = request.headers.get("X-Version") as string;
+    let authHash = request.headers.get("X-Auth-Hash") as string;
 
-    await setGameLibraryCache(EXPLORE_CACHE_KEY, data, version);
+    await setGameLibraryCache(EXPLORE_CACHE_KEY, data, version, authHash);
 
     return data;
   } catch (error) {

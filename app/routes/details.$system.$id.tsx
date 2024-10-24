@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
+import { UserRoles } from "@/lib/auth/providers.server";
 import {
   cache,
   generateETag,
@@ -117,7 +118,7 @@ type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  if (!user.signupVerifiedAt) {
+  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
 

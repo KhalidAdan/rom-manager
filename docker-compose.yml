@@ -9,6 +9,7 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
       - TWITCH_SECRET=${TWITCH_SECRET}
+      - AUTH_SECRET=${AUTH_SECRET}
     env_file:
       - .env
     volumes:

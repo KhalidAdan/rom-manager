@@ -3,6 +3,7 @@ import { StaticGameCard } from "@/components/molecules/static-game-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
+import { UserRoles } from "@/lib/auth/providers.server";
 import {
   cache,
   generateETag,
@@ -98,7 +99,7 @@ async function fetchGenreInfo(genreId: string | undefined, userId: number) {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  if (!user.signupVerifiedAt) {
+  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
   let genreId = params.id;

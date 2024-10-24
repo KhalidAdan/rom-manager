@@ -1,5 +1,6 @@
 import { Cache, CacheEntry, totalTtl } from "@epic-web/cachified";
 import { remember } from "@epic-web/remember";
+import { User } from "@prisma/client";
 import crypto from "crypto";
 import { LRUCache } from "lru-cache";
 
@@ -42,3 +43,14 @@ export let cache: Cache = {
     return lruCache.delete(key);
   },
 };
+
+export function generateSecureAuthHash(user: User) {
+  return crypto
+    .createHash("sha256")
+    .update(
+      `${user.id}-${user.signupVerifiedAt ?? "unverified"}-${
+        process.env.AUTH_SECRET
+      }`
+    )
+    .digest("hex");
+}

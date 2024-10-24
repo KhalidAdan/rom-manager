@@ -6,6 +6,7 @@ let envVariables = z.object({
   SESSION_SECRET: z.string(),
   TWITCH_CLIENT_ID: z.string(),
   TWITCH_SECRET: z.string(),
+  AUTH_SECRET: z.string(),
 });
 
 try {

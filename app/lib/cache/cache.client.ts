@@ -7,7 +7,7 @@ export interface CachedData<T> {
   version: string;
 }
 
-export type CachedGameLibrary = CachedData<GameLibrary>;
+export type CachedGameLibrary = CachedData<GameLibrary> & { authHash: string };
 
 export let gameLibraryStore = localforage.createInstance({
   name: "gameLibrary",
@@ -30,13 +30,15 @@ export async function getGameLibraryCache(
 export async function setGameLibraryCache(
   key: string,
   data: any,
-  version: string
+  version: string,
+  authHash: string
 ): Promise<void> {
   try {
     await gameLibraryStore.setItem(key, {
       data,
       timestamp: Date.now(),
       version,
+      authHash,
     });
   } catch (error) {
     console.error("Failed to set cache:", error);
