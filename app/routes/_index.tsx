@@ -10,7 +10,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Home() {
-  let user = useLoaderData<typeof loader>();
+  let data = useLoaderData<typeof loader>();
   return (
     <main className="bg-black">
       <svg
@@ -78,13 +78,13 @@ export default function Home() {
           </h2>
           <Link
             preventScrollReset
-            to={!user ? "/authenticate" : "/auth/logout"}
+            to={!data.user ? "/authenticate" : "/auth/logout"}
             className={cn(
               buttonVariants({ variant: "outline" }),
               "tracking-tight font-mono italic"
             )}
           >
-            {!user ? "Login" : "Logout"}
+            {!data.user ? "Login" : "Logout"}
           </Link>
         </header>
         <div className="absolute inset-0">

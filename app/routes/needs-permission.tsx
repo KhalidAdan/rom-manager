@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -6,17 +6,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { authenticator } from "@/lib/auth/auth.server";
-import { LoaderFunctionArgs } from "@remix-run/node";
+import { getUser } from "@/lib/auth/auth.server";
+import { UserRoles } from "@/lib/auth/providers.server";
+import { prisma } from "@/lib/prisma.server";
+import { cn } from "@/lib/utils";
+import { LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { Link, useLoaderData } from "@remix-run/react";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  return await authenticator.isAuthenticated(request, {
-    successRedirect: "/explore",
-    failureRedirect: "/authenticate",
-  });
+  let userData = await getUser(request);
+  if (!userData.user?.signupVerifiedAt) {
+    let admin = await prisma.user.findFirst({
+      where: {
+        roleId: { equals: UserRoles.ADMIN },
+      },
+    });
+
+    if (!admin) return { adminEmail: null };
+
+    return { adminEmail: admin.email };
+  }
+  throw redirect("/explore");
 }
 
 export default function PendingActivation() {
+  let { adminEmail } = useLoaderData<typeof loader>();
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden">
       <div
@@ -32,13 +46,24 @@ export default function PendingActivation() {
         <CardHeader className="text-center">
           <CardTitle>Account Activation Pending</CardTitle>
           <CardDescription>
-            Contact Admin for ROM Manager Access
+            Contact Admin for
+            <span className="italic font-mono text-base">{" ROMSTHO "}</span>
+            Access
           </CardDescription>
         </CardHeader>
         <CardFooter className="flex flex-col items-center space-y-4">
-          <Button className="w-full" size="lg">
-            Check Again
-          </Button>
+          {!adminEmail ? (
+            <Link
+              className={cn(buttonVariants({ size: "lg" }), "w-full")}
+              to={`mailto:${adminEmail}`}
+            >
+              Check Again
+            </Link>
+          ) : (
+            <Button className="w-full" size="lg" disabled>
+              Admin's email not configured{" "}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

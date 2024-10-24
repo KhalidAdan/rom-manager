@@ -13,7 +13,7 @@ import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
-import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
 async function fetchGenreInfo(genreId: string | undefined, userId: number) {
@@ -98,6 +98,9 @@ async function fetchGenreInfo(genreId: string | undefined, userId: number) {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
+  if (!user.signupVerifiedAt) {
+    throw redirect(`/needs-permission`);
+  }
   let genreId = params.id;
 
   try {

@@ -2,7 +2,6 @@ import { useInitializeEmulator } from "@/hooks/use-initialize-emulator";
 import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
 import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
-import { updateGlobalVersion } from "@/lib/cache/cache.server";
 import { DATA_DIR } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
@@ -39,7 +38,9 @@ export enum Intent {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  updateGlobalVersion();
+  if (!user.signupVerifiedAt) {
+    throw redirect(`/needs-permission`);
+  }
 
   let game = await prisma.game.findFirst({
     where: {

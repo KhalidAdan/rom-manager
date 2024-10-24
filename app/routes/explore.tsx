@@ -28,7 +28,7 @@ import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
 import { getGameLibrary } from "@/lib/game-library";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
-import { json, LoaderFunctionArgs } from "@remix-run/node";
+import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
   ClientLoaderFunctionArgs,
   Link,
@@ -40,6 +40,9 @@ import { Intent } from "./details.$system.$id";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
+  if (user.signupVerifiedAt == null) {
+    throw redirect(`/needs-permission`);
+  }
   try {
     let data = await cachified({
       key: EXPLORE_CACHE_KEY,

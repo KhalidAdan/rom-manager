@@ -1,9 +1,4 @@
-import {
-  type LinksFunction,
-  LoaderFunctionArgs,
-  json,
-  redirect,
-} from "@remix-run/node";
+import { type LinksFunction, LoaderFunctionArgs, json } from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -27,8 +22,6 @@ import spaceMonoItalic from "/fonts/SpaceMono/SpaceMono-Italic.ttf";
 import spaceMonoRegular from "/fonts/SpaceMono/SpaceMono-Regular.ttf";
 
 import { Toaster } from "./components/ui/toaster";
-import { requireUser } from "./lib/auth/auth.server";
-import { UserRoles } from "./lib/auth/providers.server";
 import { getHints } from "./lib/client-hints";
 import { getTheme } from "./lib/theme.server";
 import "./tailwind.css";
@@ -105,21 +98,6 @@ export let links: LinksFunction = () => [
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  let url = new URL(request.url);
-  let isAuthRoute = [
-    "/authenticate",
-    "/auth",
-    "/needs-permission",
-    "/",
-  ].includes(url.pathname);
-
-  if (isAuthRoute) return null;
-
-  let user = await requireUser(request);
-  if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
-    return redirect("/needs-permission");
-  }
-
   return json({
     requestInfo: {
       hints: getHints(request),

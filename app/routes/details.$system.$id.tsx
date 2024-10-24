@@ -117,6 +117,10 @@ type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
+  if (!user.signupVerifiedAt) {
+    throw redirect(`/needs-permission`);
+  }
+
   let gameId = Number(params.id);
 
   try {
