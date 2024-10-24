@@ -1,6 +1,6 @@
 # ROMSTHO
 
-managing rom libraries
+managing rom libraries on my homelab!
 
 ## Working with EmulatorJS
 
