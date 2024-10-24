@@ -6,6 +6,10 @@ COPY package*.json ./
 
 ENV NPM_CONFIG_LOGLEVEL=verbose
 ENV PORT=5173
+# GENERATE
+RUN sed -i '/^DEPLOY_SECRET=/d' .env 2>/dev/null || true && \
+    export DEPLOY_SECRET=$(openssl rand -base64 32) && \
+    echo "DEPLOY_SECRET=$DEPLOY_SECRET" >> .env
 
 RUN npm ci
 

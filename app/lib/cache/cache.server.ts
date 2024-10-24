@@ -49,7 +49,7 @@ export function generateSecureAuthHash(user: User) {
     .createHash("sha256")
     .update(
       `${user.id}-${user.signupVerifiedAt ?? "unverified"}-${
-        process.env.AUTH_SECRET
+        process.env.DEPLOY_SECRET
       }`
     )
     .digest("hex");
