@@ -136,7 +136,6 @@ export default function Onboarding() {
             file.name.toLowerCase().endsWith(system.extension)
           )
         );
-        console.log(filteredFiles);
         setSelectedFiles(filteredFiles);
       }
     },

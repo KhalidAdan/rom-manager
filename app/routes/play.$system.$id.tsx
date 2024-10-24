@@ -117,8 +117,6 @@ async function removeBorrowVoucher(
 
   let { gameId } = submission.value;
 
-  console.log(gameId, userId);
-
   await prisma.game.update({
     where: {
       userId,
@@ -131,8 +129,6 @@ async function removeBorrowVoucher(
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  console.log("REMOVING BORROW VOUCHER");
-  console.log(request.url);
   let user = await requireUser(request);
   let formData = await request.formData();
 
@@ -150,7 +146,6 @@ export default function Play() {
   let fetcher = useFetcher({ key: "remove-borrow-voucher" });
 
   let cleanupEmulator = useCallback(() => {
-    console.log("calling cleanup fn");
     if (window.EJS_emulator) {
       window.EJS_emulator.callEvent("exit");
       fetcher.submit(

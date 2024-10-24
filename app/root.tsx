@@ -1,4 +1,9 @@
-import { type LinksFunction, LoaderFunctionArgs, json } from "@remix-run/node";
+import {
+  type LinksFunction,
+  LoaderFunctionArgs,
+  MetaFunction,
+  json,
+} from "@remix-run/node";
 import {
   Links,
   Meta,
@@ -25,6 +30,42 @@ import { Toaster } from "./components/ui/toaster";
 import { getHints } from "./lib/client-hints";
 import { getTheme } from "./lib/theme.server";
 import "./tailwind.css";
+
+export const meta: MetaFunction = () => {
+  return [
+    { title: "ROMSTHO" },
+    { name: "description", content: "Your personal ROM collection manager" },
+
+    // PWA meta tags
+    { name: "theme-color", content: "#000000" },
+    {
+      name: "viewport",
+      content: "width=device-width,initial-scale=1,viewport-fit=cover",
+    },
+    { name: "mobile-web-app-capable", content: "yes" },
+    { name: "apple-mobile-web-app-capable", content: "yes" },
+    { name: "apple-mobile-web-app-status-bar-style", content: "black" },
+    { name: "apple-mobile-web-app-title", content: "ROMSTHO" },
+
+    // PWA icons for iOS
+    {
+      rel: "apple-touch-icon",
+      sizes: "192x192",
+      href: "/icons/icon-192x192.png",
+    },
+    {
+      rel: "apple-touch-icon",
+      sizes: "512x512",
+      href: "/icons/icon-512x512.png",
+    },
+
+    // Manifest link
+    { rel: "manifest", href: "/manifest.json" },
+
+    // Optional: Suppress automatic phone number detection
+    { name: "format-detection", content: "telephone=no" },
+  ];
+};
 
 export let links: LinksFunction = () => [
   {
