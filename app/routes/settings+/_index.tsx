@@ -21,6 +21,7 @@ import {
 import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
+import { cache } from "@/lib/cache/cache.server";
 import { MAX_FILES, SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
 import {
   filterOutUnsupportedFileTypes,
@@ -289,6 +290,7 @@ export async function action({ request }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: FolderScanSchema,
       });
+      cache.clear();
       return await scrapeROMFolder(submission);
     }
     case Intent.ALLOW_SIGNUP: {
@@ -465,18 +467,18 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {users.length > 0 ? (
-                users.map((user) => (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Signup Date</TableHead>
-                        <TableHead>Allow Date</TableHead>
-                        <TableHead className="text-center">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Signup Date</TableHead>
+                    <TableHead>Allow Date</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length > 0 ? (
+                    users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
@@ -520,14 +522,14 @@ export default function SettingsPage() {
                           </Form>
                         </TableCell>
                       </TableRow>
-                    </TableBody>
-                  </Table>
-                ))
-              ) : (
-                <p className="text-center my-4">
-                  No users yet, invite some people to sign up!
-                </p>
-              )}
+                    ))
+                  ) : (
+                    <p className="text-center my-4">
+                      No users yet, invite some people to sign up!
+                    </p>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -539,18 +541,18 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {gamesLocked.length > 0 ? (
-                gamesLocked.map((gameStats) => (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Game Title</TableHead>
-                        <TableHead>Borrower</TableHead>
-                        <TableHead>Borrow Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Game Title</TableHead>
+                    <TableHead>Borrower</TableHead>
+                    <TableHead>Borrow Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gamesLocked.length > 0 ? (
+                    gamesLocked.map((gameStats) => (
                       <TableRow key={gameStats.id}>
                         <TableCell>{gameStats.game.title}</TableCell>
                         <TableCell>{gameStats.user.email}</TableCell>
@@ -561,14 +563,14 @@ export default function SettingsPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    </TableBody>
-                  </Table>
-                ))
-              ) : (
-                <p className="text-center my-4">
-                  No borrow vouchers have been given out
-                </p>
-              )}
+                    ))
+                  ) : (
+                    <p className="text-center my-4">
+                      No borrow vouchers have been given out
+                    </p>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 

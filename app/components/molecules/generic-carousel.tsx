@@ -102,11 +102,11 @@ export function GenericCarousel<T>({
       </CarouselContent>
       <CarouselPrevious
         variant="ghost"
-        className={cn(prevButtonClassName, "hidden lg:block")}
+        className={cn(prevButtonClassName, "hidden lg:flex")}
       />
       <CarouselNext
         variant="ghost"
-        className={cn(nextButtonClassName, "hidden lg:block")}
+        className={cn(nextButtonClassName, "hidden lg:flex")}
       />
     </Carousel>
   );
