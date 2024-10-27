@@ -1,6 +1,5 @@
 import { Cache, CacheEntry, totalTtl } from "@epic-web/cachified";
 import { remember } from "@epic-web/remember";
-import { User } from "@prisma/client";
 import crypto from "crypto";
 import { LRUCache } from "lru-cache";
 
@@ -9,16 +8,20 @@ let lruCache = remember(
   () => new LRUCache<string, CacheEntry>({ max: 1000 })
 );
 
-let globalVersion = remember("globalVersion", () => ({
-  value: Date.now(),
-}));
-
-export function updateGlobalVersion() {
-  globalVersion.value = Date.now();
+interface GlobalVersions {
+  genreInfo: number;
+  gameLibrary: number;
+  details: number;
 }
 
-export function getGlobalVersion() {
-  return globalVersion.value;
+export let globalVersions = remember("globalVersions", () => ({
+  genreInfo: Date.now(),
+  gameLibrary: Date.now(),
+  details: Date.now(),
+}));
+
+export function updateVersion(key: keyof GlobalVersions) {
+  globalVersions[key] = Date.now();
 }
 
 export function generateETag(data: any): string {
@@ -28,7 +31,7 @@ export function generateETag(data: any): string {
   return hash;
 }
 
-export let cache: Cache = {
+export let cache: Cache & { clear: () => void } = {
   set(key, value) {
     let ttl = totalTtl(value?.metadata);
     return lruCache.set(key, value, {
@@ -42,15 +45,7 @@ export let cache: Cache = {
   delete(key) {
     return lruCache.delete(key);
   },
+  clear: () => {
+    return lruCache.clear();
+  },
 };
-
-export function generateSecureAuthHash(user: User) {
-  return crypto
-    .createHash("sha256")
-    .update(
-      `${user.id}-${user.signupVerifiedAt ?? "unverified"}-${
-        process.env.DEPLOY_SECRET
-      }`
-    )
-    .digest("hex");
-}

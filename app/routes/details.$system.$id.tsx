@@ -19,18 +19,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import {
+  getDetailedInfoCache,
+  setDetailedInfoCache,
+} from "@/lib/cache/cache.client";
+import {
   cache,
   generateETag,
-  getGlobalVersion,
-  updateGlobalVersion,
+  globalVersions,
+  updateVersion,
 } from "@/lib/cache/cache.server";
 import {
   CACHE_SWR,
   CACHE_TTL,
+  DETAILS_CACHE_KEY,
+  EXPLORE_CACHE_KEY,
   MAX_UPLOAD_SIZE,
   ROM_MAX_SIZE,
 } from "@/lib/const";
-import { getGameDetailsData } from "@/lib/game-library";
+import { GameDetails, getGameDetailsData } from "@/lib/game-library";
+import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { prisma } from "@/lib/prisma.server";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
@@ -60,6 +67,13 @@ import {
 import { ArrowLeft, Lock } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
+
+const HEADERS = {
+  VERSION: "X-Details-Version",
+  AUTH_STATE: "X-Auth-State",
+  CACHE_CONTROL: "Cache-Control",
+  ETAG: "ETag",
+} as const;
 
 type RomDetails = {
   name: string;
@@ -126,7 +140,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     let game = await cachified({
-      key: `game-${gameId}`,
+      key: DETAILS_CACHE_KEY(gameId),
       cache,
       async getFreshValue() {
         return await getGameDetailsData(gameId, user);
@@ -141,14 +155,22 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     return json(game, {
       headers: {
-        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
-        ETag: `"${generateETag(game)}"`,
-        "X-Version": getGlobalVersion().toString(),
+        [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
+        [HEADERS.ETAG]: `"${generateETag(game)}"`,
+        [HEADERS.VERSION]: globalVersions.details.toString(),
       },
     });
   } catch (error) {
-    updateGlobalVersion();
-    return json({ error: `${error}` });
+    updateVersion("details");
+    return json(
+      { error: `${error}` },
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "no-cache",
+          [HEADERS.VERSION]: globalVersions.details.toString(),
+        },
+      }
+    );
   }
 }
 
@@ -237,6 +259,10 @@ async function deleteRom(submission: Submission<DeleteROM>) {
   }
 
   let { id } = submission.value;
+  updateVersion("details");
+  updateVersion("gameLibrary");
+  updateVersion("genreInfo");
+  cache.delete(DETAILS_CACHE_KEY(id));
   await prisma.game.delete({
     where: {
       id,
@@ -249,6 +275,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let user = await requireUser(request);
   let contentType = request.headers.get("content-type");
   let formData: FormData;
+
+  let gameId = Number(params.id);
 
   if (contentType && contentType.includes("multipart/form-data")) {
     formData = await parseMultipartFormData(
@@ -274,8 +302,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         schema: UpdateMetadata,
       });
 
-      updateGlobalVersion();
-      cache.delete(`game-${params.id}`);
+      updateVersion("details");
+      cache.delete(DETAILS_CACHE_KEY(gameId));
       return await updateMetadata(submission);
     }
     case Intent.DeleteRom: {
@@ -283,8 +311,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         schema: DeleteROM,
       });
 
-      updateGlobalVersion();
-      cache.delete("explore");
+      updateVersion("details");
+      cache.delete(EXPLORE_CACHE_KEY);
       return await deleteRom(submission);
     }
     default: {
@@ -294,6 +322,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
   }
 }
+
+export const clientLoader = createClientLoader<GameDetails>({
+  getCacheKey: (params) => DETAILS_CACHE_KEY(Number(params.id)),
+  getCache: getDetailedInfoCache,
+  setCache: setDetailedInfoCache,
+});
 
 export default function RomDetails() {
   let data = useLoaderData<typeof loader>();
