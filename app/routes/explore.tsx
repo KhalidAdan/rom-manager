@@ -22,29 +22,32 @@ import {
 import {
   cache,
   generateETag,
-  generateSecureAuthHash,
-  getGlobalVersion,
-  updateGlobalVersion,
+  globalVersions,
+  updateVersion,
 } from "@/lib/cache/cache.server";
 import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
-import { getGameLibrary } from "@/lib/game-library";
+import { GameLibrary, getGameLibrary } from "@/lib/game-library";
+import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
 import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
-import {
-  ClientLoaderFunctionArgs,
-  Link,
-  useFetcher,
-  useLoaderData,
-} from "@remix-run/react";
+import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Search } from "lucide-react";
 import { Intent } from "./details.$system.$id";
+
+const HEADERS = {
+  VERSION: "X-Explore-Version",
+  AUTH_STATE: "X-Auth-State",
+  CACHE_CONTROL: "Cache-Control",
+  ETAG: "ETag",
+} as const;
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
+
   try {
     let data = await cachified({
       key: EXPLORE_CACHE_KEY,
@@ -56,54 +59,38 @@ export async function loader({ request }: LoaderFunctionArgs) {
       swr: CACHE_SWR,
     });
 
-    let authStateHash = generateSecureAuthHash(user);
+    return json(
+      data,
 
-    return json(data, {
-      headers: {
-        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
-        ETag: `"${generateETag(data)}"`,
-        "X-Version": getGlobalVersion().toString(),
-        "X-Auth-State": authStateHash,
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
+          [HEADERS.ETAG]: `"${generateETag(data)}"`,
+          [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
+        },
+      }
+    );
+  } catch (error) {
+    updateVersion("gameLibrary");
+    return json(
+      {
+        error: `${error}`,
       },
-    });
-  } catch (error) {
-    updateGlobalVersion();
-    return json({
-      error: `${error}`,
-    });
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "no-cache",
+          [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
+        },
+      }
+    );
   }
 }
 
-export async function clientLoader({
-  request,
-  serverLoader,
-}: ClientLoaderFunctionArgs) {
-  try {
-    let cached = await getGameLibraryCache(EXPLORE_CACHE_KEY);
-    if (cached) {
-      let serverVersion = request.headers.get("X-Version");
-      let serverAuthHash = request.headers.get("X-Auth-Hash");
-
-      const isVersionMatch = cached.version === serverVersion;
-      const isFresh = Date.now() - cached.timestamp < CACHE_TTL;
-      const isAuthMatch = cached.authHash === serverAuthHash;
-
-      if (isVersionMatch && isFresh && isAuthMatch) return cached.data;
-    }
-
-    // cache invalidated or no cache
-    let data = await serverLoader<typeof loader>();
-    let version = request.headers.get("X-Version") as string;
-    let authHash = request.headers.get("X-Auth-Hash") as string;
-
-    await setGameLibraryCache(EXPLORE_CACHE_KEY, data, version, authHash);
-
-    return data;
-  } catch (error) {
-    console.error("Client loader error:", error);
-    return serverLoader();
-  }
-}
+export const clientLoader = createClientLoader<GameLibrary>({
+  getCacheKey: () => EXPLORE_CACHE_KEY,
+  getCache: getGameLibraryCache,
+  setCache: setGameLibraryCache,
+});
 
 export default function Explore() {
   let data = useLoaderData<typeof loader>();

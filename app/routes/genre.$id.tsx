@@ -4,130 +4,86 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
+import { getGenreInfoCache, setGenreInfoCache } from "@/lib/cache/cache.client";
 import {
   cache,
   generateETag,
-  getGlobalVersion,
-  updateGlobalVersion,
+  globalVersions,
+  updateVersion,
 } from "@/lib/cache/cache.server";
-import { bufferToStringIfExists } from "@/lib/fs.server";
-import { prisma } from "@/lib/prisma.server";
+import { GENRE_CACHE_KEY } from "@/lib/const";
+import { fetchGenreInfo, GenreInfo } from "@/lib/genre-library";
+import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
 import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
-async function fetchGenreInfo(genreId: string | undefined, userId: number) {
-  if (!genreId) {
-    throw new Response("Not Found", { status: 404 });
-  }
-  let activeGenre = await prisma.genre.findUnique({
-    where: { id: Number(genreId) },
-    include: {
-      gameGenres: true,
-    },
-  });
-
-  let allGenres = await prisma.genre.findMany({
-    include: {
-      _count: {
-        select: { gameGenres: true },
-      },
-    },
-  });
-
-  let gamesInGenre = await prisma.game.findMany({
-    where: {
-      gameGenres: {
-        some: {
-          genreId: Number(genreId),
-        },
-      },
-    },
-    select: {
-      id: true,
-      title: true,
-      summary: true,
-      backgroundImage: true,
-      coverArt: true,
-      system: {
-        select: {
-          title: true,
-        },
-      },
-    },
-  });
-
-  let gameStats = await prisma.gameStats.count({
-    where: {
-      userId: userId,
-      game: {
-        gameGenres: {
-          some: {
-            genreId: Number(genreId),
-          },
-        },
-      },
-    },
-  });
-
-  if (!activeGenre) {
-    throw new Response("Genre Not Found", { status: 404 });
-  }
-
-  let gamesPlayedPercentage = Math.round(
-    (gameStats / gamesInGenre.length) * 100
-  );
-
-  return {
-    activeGenre,
-    allGenres: allGenres
-      .map((genre) => ({
-        ...genre,
-        gameCount: genre._count.gameGenres,
-      }))
-      .sort((a, b) => (a.gameCount < b.gameCount ? 1 : -1)),
-    gamesInGenre: gamesInGenre.map((game) => ({
-      ...game,
-      coverArt: bufferToStringIfExists(game.coverArt),
-      backgroundImage: bufferToStringIfExists(game.backgroundImage),
-    })),
-    gameStats,
-    gamesPlayedPercentage,
-  };
-}
+let HEADERS = {
+  VERSION: "X-Genre-Version",
+  CACHE_CONTROL: "Cache-Control",
+  ETAG: "ETag",
+} as const;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
-  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
+
+  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN)
     throw redirect(`/needs-permission`);
-  }
+
   let genreId = params.id;
 
   try {
     if (!genreId) throw new Error("genreId could not be pulled from URL");
 
     let genreInfo = await cachified({
-      key: `genre-${genreId}`,
+      key: GENRE_CACHE_KEY(genreId),
       cache,
       async getFreshValue() {
-        return await fetchGenreInfo(genreId, user.id);
+        let info = await fetchGenreInfo(Number(genreId), user.id);
+
+        return info;
       },
     });
-    return json(genreInfo, {
-      headers: {
-        "Cache-Control": "max-age=900, stale-while-revalidate=3600",
-        ETag: `"${generateETag(genreInfo)}"`,
-        "X-Version": getGlobalVersion().toString(),
+
+    let version = globalVersions.genreInfo.toString();
+
+    return json(
+      {
+        ...genreInfo,
+        _meta: {
+          version,
+        },
       },
-    });
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
+          [HEADERS.ETAG]: `"${generateETag(genreInfo)}"`,
+          [HEADERS.VERSION]: globalVersions.genreInfo.toString(),
+        },
+      }
+    );
   } catch (error) {
-    updateGlobalVersion();
-    return json({
-      error: `${error}`,
-    });
+    updateVersion("genreInfo");
+    return json(
+      {
+        error: `${error}`,
+      },
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "no-cache",
+          [HEADERS.VERSION]: globalVersions.genreInfo.toString(),
+        },
+      }
+    );
   }
 }
+
+export const clientLoader = createClientLoader<GenreInfo>({
+  getCacheKey: (params) => GENRE_CACHE_KEY(params.id),
+  getCache: getGenreInfoCache,
+  setCache: setGenreInfoCache,
+});
 
 export default function GenrePage() {
   let data = useLoaderData<typeof loader>();

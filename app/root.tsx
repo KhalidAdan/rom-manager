@@ -33,7 +33,9 @@ import "./tailwind.css";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "ROMSTHO" },
+    {
+      title: `ROMSTHO${process.env.NODE_ENV == "development" && ":DEV"}`,
+    },
     { name: "description", content: "Your personal ROM collection manager" },
 
     // PWA meta tags
@@ -70,13 +72,15 @@ export const meta: MetaFunction = () => {
 export let links: LinksFunction = () => [
   {
     rel: "preload",
-    href: interRegular as "font",
+    href: interRegular,
+    as: "font",
     type: "font/ttf",
     crossOrigin: "anonymous",
   },
   {
     rel: "preload",
-    href: interItalic as "font",
+    href: interItalic,
+    as: "font",
     type: "font/ttf",
     crossOrigin: "anonymous",
   },

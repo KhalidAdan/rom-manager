@@ -28,4 +28,6 @@ export const CATEGORY_PORT = 11;
 export const CACHE_TTL = 3_600_000; // ms in 1hr
 export const CACHE_SWR = 45_000;
 
-export const EXPLORE_CACHE_KEY = "/explore";
+export const EXPLORE_CACHE_KEY = "explore";
+export const GENRE_CACHE_KEY = (genreId: string) => `genre-${genreId}`;
+export const DETAILS_CACHE_KEY = (gameId: number) => `game-${gameId}`;
