@@ -34,11 +34,9 @@ import "./tailwind.css";
 export const meta: MetaFunction = () => {
   return [
     {
-      title: `ROMSTHO${process.env.NODE_ENV == "development" && ":DEV"}`,
+      title: `ROMSTHO${process.env.NODE_ENV == "development" ? ":DEV" : ""}`,
     },
     { name: "description", content: "Your personal ROM collection manager" },
-
-    // PWA meta tags
     { name: "theme-color", content: "#000000" },
     {
       name: "viewport",
@@ -48,8 +46,6 @@ export const meta: MetaFunction = () => {
     { name: "apple-mobile-web-app-capable", content: "yes" },
     { name: "apple-mobile-web-app-status-bar-style", content: "black" },
     { name: "apple-mobile-web-app-title", content: "ROMSTHO" },
-
-    // PWA icons for iOS
     {
       rel: "apple-touch-icon",
       sizes: "192x192",
@@ -60,12 +56,7 @@ export const meta: MetaFunction = () => {
       sizes: "512x512",
       href: "/icons/icon-512x512.png",
     },
-
-    // Manifest link
     { rel: "manifest", href: "/manifest.json" },
-
-    // Optional: Suppress automatic phone number detection
-    { name: "format-detection", content: "telephone=no" },
   ];
 };
 
