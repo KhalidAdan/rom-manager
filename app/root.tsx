@@ -34,7 +34,7 @@ import "./tailwind.css";
 export const meta: MetaFunction = () => {
   return [
     {
-      title: `ROMSTHO${process.env.NODE_ENV == "development" && ":DEV"}`,
+      title: `ROMSTHO${process.env.NODE_ENV == "development" ? ":DEV" : ""}`,
     },
     { name: "description", content: "Your personal ROM collection manager" },
 
