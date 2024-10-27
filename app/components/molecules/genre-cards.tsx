@@ -30,7 +30,11 @@ export function GenreCards({ genres }: { genres: Category[] }) {
       <GenericCarousel
         items={genres}
         renderItem={(genre: Category, index: number) => (
-          <Link to={`/genre/${genre.id}`} className="group block w-full h-full">
+          <Link
+            to={`/genre/${genre.id}`}
+            className="group block w-full h-full"
+            prefetch="viewport"
+          >
             <Card className="w-full h-[200px] cursor-pointer overflow-hidden">
               <CardContent className="p-0 relative h-full">
                 <div
