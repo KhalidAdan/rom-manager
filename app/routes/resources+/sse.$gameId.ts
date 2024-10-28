@@ -4,12 +4,8 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 
 import { eventStream } from "remix-utils/sse/server";
 
-let userSessionStore: {
-  [userId: string]: { timer?: NodeJS.Timeout; revoked: boolean };
-} = {};
-
-const USER_PERMISSIONS_REVOKED_TIMEOUT = 600_000;
-const POLLING_FREQUENCY = 6_000;
+const USER_PERMISSIONS_REVOKED_TIMEOUT = 15_000;
+const POLLING_FREQUENCY = 3_000;
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await requireUser(request);
@@ -26,33 +22,57 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         });
         if (game.userId === null && !revokeSent) {
           send({
-            event: "revoke",
-            data: "Warning User",
+            event: "message",
+            data: JSON.stringify({
+              type: "revoke",
+              message: "Warning User",
+            }),
           });
           revokeSent = true;
 
           revokeFinalTimer = setTimeout(() => {
+            console.log("revoking final user lock");
             send({
-              event: "revoke-final",
-              data: "Revoking user lock on game",
+              event: "message",
+              data: JSON.stringify({
+                type: "revoke-final",
+                message: "Revoking user lock on game",
+              }),
             });
-            send({ event: "close", data: "" });
-            abort();
-          }, USER_PERMISSIONS_REVOKED_TIMEOUT);
+            setTimeout(() => {
+              send({
+                event: "message",
+                data: JSON.stringify({
+                  type: "close",
+                  message: "Session terminated",
+                }),
+              });
+              abort();
+            }, 30_000);
+          }, USER_PERMISSIONS_REVOKED_TIMEOUT - 30_000);
         }
       } catch (error) {
         console.error("Error checking revocation:", error);
-        send({ event: "error", data: "An error occurred" });
+        send({
+          event: "message",
+          data: JSON.stringify({
+            type: "error",
+            message: "An error occurred",
+          }),
+        });
         abort();
       }
     }
 
-    let interval = setInterval(async () => {
-      console.log("pinging");
-      await checkRevocation();
+    checkRevocation().catch(console.error);
+
+    const interval = setInterval(() => {
+      console.log("SSE sent to client");
+      checkRevocation().catch(console.error);
     }, POLLING_FREQUENCY);
 
     return function cleanup() {
+      console.log("cleaning up the SSE connection");
       clearInterval(interval);
       if (revokeFinalTimer) clearTimeout(revokeFinalTimer);
     };

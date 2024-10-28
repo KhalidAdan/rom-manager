@@ -1,5 +1,6 @@
 import { useInitializeEmulator } from "@/hooks/use-initialize-emulator";
 import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
+import { useReactiveGameLock } from "@/hooks/use-reactive-game-lock";
 import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
@@ -155,7 +156,7 @@ export default function Play() {
     }
   }, []);
 
-  // useReactiveGameLock(data.id);
+  useReactiveGameLock(data.id);
 
   useInitializeEmulator({
     emulatorInitialized,

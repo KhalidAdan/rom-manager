@@ -26,8 +26,8 @@ import {
   updateVersion,
 } from "@/lib/cache/cache.server";
 import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
+import { createClientLoader } from "@/lib/create-client-loader";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
-import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
 import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
@@ -90,6 +90,7 @@ export const clientLoader = createClientLoader<GameLibrary>({
   getCacheKey: () => EXPLORE_CACHE_KEY,
   getCache: getGameLibraryCache,
   setCache: setGameLibraryCache,
+  CACHE_TTL: CACHE_TTL,
 });
 
 export default function Explore() {

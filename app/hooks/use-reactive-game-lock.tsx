@@ -1,39 +1,56 @@
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useEventSource } from "remix-utils/sse/react";
+
+interface GameLockStatus {
+  isRevoked: boolean;
+  isFinalWarning: boolean;
+  isClosed: boolean;
+}
 
 export function useReactiveGameLock(id: number) {
   let { toast } = useToast();
-  let revokeMessage = useEventSource(`/resources/sse/${id}`, {
-    event: "revoke",
+  let [status, setStatus] = useState<GameLockStatus>({
+    isRevoked: false,
+    isFinalWarning: false,
+    isClosed: false,
   });
-
-  let revokeFinalMessage = useEventSource(`/resources/sse/${id}`, {
-    event: "revoke-final",
-  });
-
-  let closeMessage = useEventSource(`/resources/sse/${id}`, {
-    event: "close",
-  });
+  let eventMessage = useEventSource(`/resources/sse/${id}`);
 
   useEffect(() => {
-    if (revokeMessage) {
-      toast({
-        title: "Game recalled",
-        description:
-          "Your borrow voucher has been recalled, make sure to export your save in the next 5 minutes or you might lose it!",
-      });
-    }
+    if (!eventMessage) return;
 
-    if (revokeFinalMessage) {
-      toast({
-        title: "Final warning...",
-        description: "You have 30 seconds before this message self destructs",
-      });
-    }
+    try {
+      const event = JSON.parse(eventMessage);
 
-    if (closeMessage) {
-      setTimeout(() => {}, 30_000);
+      switch (event.type) {
+        case "revoke":
+          setStatus((prev) => ({ ...prev, isRevoked: true }));
+          toast({
+            title: "Game recalled",
+            description:
+              "Your borrow voucher has been recalled, make sure to export your save in the next 5 minutes or you might lose it!",
+          });
+          break;
+
+        case "revoke-final":
+          setStatus((prev) => ({ ...prev, isFinalWarning: true }));
+          toast({
+            title: "Final warning...",
+            description:
+              "You have 30 seconds before this message self destructs (and ytou get booted off!)",
+          });
+          break;
+
+        case "close":
+          setStatus((prev) => ({ ...prev, isClosed: true }));
+          // Handle close logic
+          break;
+      }
+    } catch (error) {
+      console.error("Error parsing event message:", error);
     }
-  }, [revokeMessage, revokeFinalMessage]);
+  }, [eventMessage, toast]);
+
+  return status;
 }

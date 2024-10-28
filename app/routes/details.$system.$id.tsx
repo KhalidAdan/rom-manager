@@ -36,8 +36,8 @@ import {
   MAX_UPLOAD_SIZE,
   ROM_MAX_SIZE,
 } from "@/lib/const";
+import { createClientLoader } from "@/lib/create-client-loader";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
-import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { prisma } from "@/lib/prisma.server";
 import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
@@ -152,6 +152,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     if (game.borrowedBy && game.borrowedBy.id !== user.id) {
       throw redirect(`/details/${game.system.title}/${gameId}`);
     }
+
+    console.log("userId", user.id, "borrowed by", game.borrowedBy);
 
     return json(game, {
       headers: {
@@ -327,6 +329,7 @@ export const clientLoader = createClientLoader<GameDetails>({
   getCacheKey: (params) => DETAILS_CACHE_KEY(Number(params.id)),
   getCache: getDetailedInfoCache,
   setCache: setDetailedInfoCache,
+  CACHE_TTL: CACHE_TTL,
 });
 
 export default function RomDetails() {
@@ -366,7 +369,7 @@ export default function RomDetails() {
   });
 
   let fetcher = useFetcher({ key: "update-last-played-game" });
-
+  console.log(borrowedBy);
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="absolute inset-0 z-0 h-full w-full">
@@ -423,7 +426,7 @@ export default function RomDetails() {
                     to be borrowed. Revoking their lock will remove them from
                     their play session.
                   </p>
-                  {user.roleId > borrowedBy.roleId && (
+                  {user.roleId < borrowedBy.roleId && (
                     <Form
                       method="POST"
                       action={`/play/${system.title}/${id}`}

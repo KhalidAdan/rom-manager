@@ -11,9 +11,9 @@ import {
   globalVersions,
   updateVersion,
 } from "@/lib/cache/cache.server";
-import { GENRE_CACHE_KEY } from "@/lib/const";
+import { CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
+import { createClientLoader } from "@/lib/create-client-loader";
 import { fetchGenreInfo, GenreInfo } from "@/lib/genre-library";
-import { createClientLoader } from "@/lib/loaders/create-client-loader";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
 import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
@@ -83,6 +83,7 @@ export const clientLoader = createClientLoader<GenreInfo>({
   getCacheKey: (params) => GENRE_CACHE_KEY(params.id),
   getCache: getGenreInfoCache,
   setCache: setGenreInfoCache,
+  CACHE_TTL: CACHE_TTL,
 });
 
 export default function GenrePage() {
