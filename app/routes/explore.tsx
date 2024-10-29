@@ -59,17 +59,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       swr: CACHE_SWR,
     });
 
-    return json(
-      data,
-
-      {
-        headers: {
-          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
-          [HEADERS.ETAG]: `"${generateETag(data)}"`,
-          [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
-        },
-      }
-    );
+    return json(data, {
+      headers: {
+        [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
+        [HEADERS.ETAG]: `"${generateETag(data)}"`,
+        [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
+      },
+    });
   } catch (error) {
     updateVersion("gameLibrary");
     return json(
@@ -86,7 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-export const clientLoader = createClientLoader<GameLibrary>({
+export let clientLoader = createClientLoader<GameLibrary>({
   getCacheKey: () => EXPLORE_CACHE_KEY,
   getCache: getGameLibraryCache,
   setCache: setGameLibraryCache,

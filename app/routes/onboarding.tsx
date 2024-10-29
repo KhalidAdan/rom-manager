@@ -144,7 +144,6 @@ export default function Onboarding() {
 
   let handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
-      console.log(selectedFiles);
       event.preventDefault();
       let formData = new FormData();
       formData.append("intent", Intent.UPLOAD_ROMS);

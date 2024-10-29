@@ -79,7 +79,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 }
 
-export const clientLoader = createClientLoader<GenreInfo>({
+export let clientLoader = createClientLoader<GenreInfo>({
   getCacheKey: (params) => GENRE_CACHE_KEY(params.id),
   getCache: getGenreInfoCache,
   setCache: setGenreInfoCache,

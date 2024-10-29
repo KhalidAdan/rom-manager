@@ -61,9 +61,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           extension: true,
         },
       },
-      borrowedBy: {
+      borrowVoucher: {
         select: {
           id: true,
+          user: {
+            select: {
+              id: true,
+              roleId: true,
+            },
+          },
         },
       },
     },
@@ -71,7 +77,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
-  if (game.borrowedBy && game.borrowedBy?.id !== user.id)
+  if (game.borrowVoucher && game.borrowVoucher.user.id !== user.id)
     throw redirect(`/details/${game.system.title}/${game.id}`);
 
   let fileData = game.file.toString("base64");
@@ -118,13 +124,12 @@ async function removeBorrowVoucher(
 
   let { gameId } = submission.value;
 
-  await prisma.game.update({
+  await prisma.borrowVoucher.update({
     where: {
-      userId,
-      id: gameId,
+      gameId,
     },
     data: {
-      userId: null,
+      returnedAt: new Date(),
     },
   });
 }

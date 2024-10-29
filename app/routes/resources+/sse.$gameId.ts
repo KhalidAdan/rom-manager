@@ -19,8 +19,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       try {
         let game = await prisma.game.findUniqueOrThrow({
           where: { id: Number(gameId) },
+          include: { borrowVoucher: true },
         });
-        if (game.userId === null && !revokeSent) {
+        if (game.borrowVoucher?.userId === null && !revokeSent) {
           send({
             event: "message",
             data: JSON.stringify({
@@ -66,7 +67,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     checkRevocation().catch(console.error);
 
-    const interval = setInterval(() => {
+    let interval = setInterval(() => {
       console.log("SSE sent to client");
       checkRevocation().catch(console.error);
     }, POLLING_FREQUENCY);

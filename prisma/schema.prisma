@@ -42,7 +42,7 @@ model System {
 }
 
 model Game {
-  id              Int       @id @default(autoincrement())
+  id              Int            @id @default(autoincrement())
   title           String
   releaseDate     Int? // Epoch time
   coverArt        Bytes?
@@ -51,18 +51,15 @@ model Game {
   file            Bytes?
   summary         String?
   completedAt     DateTime? // track when you beat or are done with a game
-  created_at      DateTime  @default(now())
-  updated_at      DateTime? @default(now())
+  created_at      DateTime       @default(now())
+  updated_at      DateTime?      @default(now())
   rating          Int?
-
   // relations
-  systemId   Int          @map("system_id")
-  system     System       @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  GameStats  GameStats[]
-  gameGenres GameGenres[]
-
-  borrowedBy User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userId     Int?  @map("user_id")
+  systemId        Int            @map("system_id")
+  system          System         @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  gameStats       GameStats[]
+  gameGenres      GameGenres[]
+  borrowVoucher   BorrowVoucher?
 
   @@map("games")
 }
@@ -78,9 +75,8 @@ model GameGenres {
 }
 
 model Genre {
-  id   Int    @id @default(autoincrement())
-  name String @unique
-
+  id         Int          @id @default(autoincrement())
+  name       String       @unique
   // relations
   gameGenres GameGenres[]
 
@@ -88,18 +84,18 @@ model Genre {
 }
 
 model User {
-  id               Int         @id @default(autoincrement())
-  email            String      @unique
+  id               Int             @id @default(autoincrement())
+  email            String          @unique
   password         String // hashed before saving
-  created_at       DateTime    @default(now())
-  updated_at       DateTime?   @default(now())
+  created_at       DateTime        @default(now())
+  updated_at       DateTime?       @default(now())
   signupVerifiedAt DateTime?
   // relations
   roleId           Int
-  role             Role        @relation(fields: [roleId], references: [id])
+  role             Role            @relation(fields: [roleId], references: [id])
   sessions         Session[]
   gameStats        GameStats[]
-  Game             Game[]
+  borrowVouchers   BorrowVoucher[]
 
   @@map("users")
 }
@@ -107,7 +103,7 @@ model User {
 model Session {
   id      Int      @id @default(autoincrement())
   expires DateTime
-  //
+  // relations
   userId  Int      @map("user_id")
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade) //in Db add check constraint
 
@@ -128,6 +124,22 @@ model GameStats {
 
   @@unique([userId, gameId])
   @@map("game_stats")
+}
+
+model BorrowVoucher {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  returnedAt   DateTime?
+  downloadedAt DateTime? // track if it's been downloaded for offline use
+  lastSyncAt   DateTime?
+  // relations
+  gameId       Int       @unique // One voucher per game at a time
+  game         Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("borrow_vouchers")
 }
 
 model MetadataJob {

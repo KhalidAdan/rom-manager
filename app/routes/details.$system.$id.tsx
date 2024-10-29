@@ -1,9 +1,11 @@
+import { BorrowStatus } from "@/components/molecules/borrow-status";
 import {
   DeleteROM,
   DeleteROMForm,
 } from "@/components/molecules/delete-rom-form";
+import { GameActionButton } from "@/components/molecules/game-action-button";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
@@ -35,11 +37,12 @@ import {
   EXPLORE_CACHE_KEY,
   MAX_UPLOAD_SIZE,
   ROM_MAX_SIZE,
+  SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
 import { createClientLoader } from "@/lib/create-client-loader";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
+import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
-import { Intent as PlayIntent } from "@/routes/play.$system.$id";
 import {
   getFormProps,
   getInputProps,
@@ -48,6 +51,7 @@ import {
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import cachified from "@epic-web/cachified";
+import { System, User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
 import {
   ActionFunctionArgs,
@@ -57,14 +61,8 @@ import {
   unstable_parseMultipartFormData as parseMultipartFormData,
   redirect,
 } from "@remix-run/node";
-import {
-  Form,
-  Link,
-  useFetcher,
-  useLoaderData,
-  useNavigate,
-} from "@remix-run/react";
-import { ArrowLeft, Lock } from "lucide-react";
+import { Form, useLoaderData, useNavigate } from "@remix-run/react";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -84,11 +82,26 @@ type RomDetails = {
   genres: string[];
 };
 
-export enum Intent {
-  UpdateMetadata = "update-metadata",
-  UpdateLastPlayed = "update-last-played",
-  DeleteRom = "delete-rom",
-}
+let BorrowGame = z.object({
+  intent: z.literal(Intent.BorrowGame),
+  gameId: z.coerce.number(),
+});
+
+type BorrowGame = z.infer<typeof BorrowGame>;
+
+let ReturnGame = z.object({
+  intent: z.literal(Intent.ReturnGame),
+  gameId: z.coerce.number(),
+});
+
+type ReturnGame = z.infer<typeof ReturnGame>;
+
+let AdminRevokeBorrow = z.object({
+  intent: z.literal(Intent.AdminRevokeBorrow),
+  gameId: z.coerce.number(),
+});
+
+type AdminRevokeBorrow = z.infer<typeof AdminRevokeBorrow>;
 
 let UpdateMetadata = z
   .object({
@@ -149,11 +162,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       swr: CACHE_SWR,
     });
 
-    if (game.borrowedBy && game.borrowedBy.id !== user.id) {
+    if (game.borrowVoucher && game.borrowVoucher.user.id !== user.id) {
       throw redirect(`/details/${game.system.title}/${gameId}`);
     }
-
-    console.log("userId", user.id, "borrowed by", game.borrowedBy);
 
     return json(game, {
       headers: {
@@ -173,6 +184,163 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
       }
     );
+  }
+}
+
+async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { gameId } = submission.value;
+
+  try {
+    let activeBorrows = await prisma.borrowVoucher.findMany({
+      where: {
+        userId,
+        returnedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      select: {
+        game: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (activeBorrows.length >= 3) {
+      return json(
+        {
+          error:
+            "You can only borrow up to 3 games at a time. You've borrowed " +
+            activeBorrows.map((ab) => ab.game.title).join(", "),
+        },
+        { status: 400 }
+      );
+    }
+
+    let existingVoucher = await prisma.borrowVoucher.findFirst({
+      where: {
+        gameId,
+        returnedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (existingVoucher) {
+      return json({ error: "This game is already borrowed" }, { status: 400 });
+    }
+
+    await prisma.borrowVoucher.upsert({
+      where: {
+        gameId,
+      },
+      create: {
+        gameId,
+        userId,
+        expiresAt: new Date(SEVEN_DAYS_EPOCH),
+      },
+      update: {
+        gameId,
+        userId,
+        expiresAt: new Date(SEVEN_DAYS_EPOCH),
+        returnedAt: null,
+      },
+    });
+
+    updateVersion("details");
+    cache.delete(DETAILS_CACHE_KEY(gameId));
+
+    return json({ success: true });
+  } catch (error) {
+    return json({ error: "Failed to borrow game" }, { status: 500 });
+  }
+}
+
+async function returnGame(submission: Submission<ReturnGame>, userId: number) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { gameId } = submission.value;
+
+  try {
+    let voucher = await prisma.borrowVoucher.findFirst({
+      where: {
+        gameId,
+        userId,
+        returnedAt: null,
+      },
+    });
+
+    if (!voucher) {
+      return json(
+        { error: "No active borrow found for this game" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.borrowVoucher.update({
+      where: { id: voucher.id },
+      data: { returnedAt: new Date() },
+    });
+
+    updateVersion("details");
+    cache.delete(DETAILS_CACHE_KEY(gameId));
+
+    return json({ success: true });
+  } catch (error) {
+    return json({ error: "Failed to return game" }, { status: 500 });
+  }
+}
+
+async function adminRevokeBorrow(
+  submission: Submission<AdminRevokeBorrow>,
+  adminId: number
+) {
+  if (submission.status !== "success") {
+    return json(submission.reply(), {
+      status: submission.status === "error" ? 400 : 200,
+    });
+  }
+
+  let { gameId } = submission.value;
+
+  try {
+    let admin = await prisma.user.findUnique({
+      where: { id: adminId },
+      select: { roleId: true },
+    });
+
+    if (admin?.roleId !== UserRoles.ADMIN) {
+      return json({ error: "Unauthorized" }, { status: 403 });
+    }
+    await prisma.borrowVoucher.update({
+      where: {
+        gameId,
+        returnedAt: null,
+      },
+      data: {
+        returnedAt: new Date(),
+      },
+    });
+
+    updateVersion("details");
+    cache.delete(DETAILS_CACHE_KEY(gameId));
+
+    return json({ success: true });
+  } catch (error) {
+    return json({ error: "Failed to revoke borrow" }, { status: 500 });
   }
 }
 
@@ -242,7 +410,7 @@ async function updateLastPlayed(
       id: gameId,
     },
     data: {
-      borrowedBy: {
+      borrowVoucher: {
         connect: {
           id: userId,
         },
@@ -292,6 +460,27 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let intent = formData.get("intent");
 
   switch (intent) {
+    case Intent.BorrowGame: {
+      let submission = parseWithZod(formData, {
+        schema: BorrowGame,
+      });
+      return await borrowGame(submission, user.id);
+    }
+
+    case Intent.ReturnGame: {
+      let submission = parseWithZod(formData, {
+        schema: ReturnGame,
+      });
+      return await returnGame(submission, user.id);
+    }
+
+    case Intent.AdminRevokeBorrow: {
+      let submission = parseWithZod(formData, {
+        schema: AdminRevokeBorrow,
+      });
+      return await adminRevokeBorrow(submission, user.id);
+    }
+
     case Intent.UpdateLastPlayed: {
       let submission = parseWithZod(formData, {
         schema: UpdateLastPlayed,
@@ -299,6 +488,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
       return await updateLastPlayed(submission, user.id);
     }
+
     case Intent.UpdateMetadata: {
       let submission = parseWithZod(formData, {
         schema: UpdateMetadata,
@@ -308,6 +498,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       cache.delete(DETAILS_CACHE_KEY(gameId));
       return await updateMetadata(submission);
     }
+
     case Intent.DeleteRom: {
       let submission = parseWithZod(formData, {
         schema: DeleteROM,
@@ -317,6 +508,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       cache.delete(EXPLORE_CACHE_KEY);
       return await deleteRom(submission);
     }
+
     default: {
       throw new Error(
         "Details/$System/$Id action. Unknown intent: '" + intent + "'"
@@ -325,7 +517,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 }
 
-export const clientLoader = createClientLoader<GameDetails>({
+export let clientLoader = createClientLoader<GameDetails>({
   getCacheKey: (params) => DETAILS_CACHE_KEY(Number(params.id)),
   getCache: getDetailedInfoCache,
   setCache: setDetailedInfoCache,
@@ -344,7 +536,7 @@ export default function RomDetails() {
     backgroundImage,
     summary,
     gameGenres,
-    borrowedBy,
+    borrowVoucher,
     user,
   } = data;
   let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
@@ -368,8 +560,6 @@ export default function RomDetails() {
     },
   });
 
-  let fetcher = useFetcher({ key: "update-last-played-game" });
-  console.log(borrowedBy);
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="absolute inset-0 z-0 h-full w-full">
@@ -414,44 +604,12 @@ export default function RomDetails() {
           </div>
 
           <div className="flex flex-col flex-1 justify-center">
-            {borrowedBy && (
-              <div className="mb-4">
-                <div className="space-y-2 mb-2 py-4">
-                  <span className="flex items-center gap-2">
-                    <Lock size="20" aria-hidden="true" /> Someone&apos; playing
-                    this
-                  </span>
-                  <p>
-                    A user has borrowed this title already, it is not available
-                    to be borrowed. Revoking their lock will remove them from
-                    their play session.
-                  </p>
-                  {user.roleId < borrowedBy.roleId && (
-                    <Form
-                      method="POST"
-                      action={`/play/${system.title}/${id}`}
-                      navigate={false}
-                      className="pt-2"
-                    >
-                      <Input type="hidden" name="gameId" defaultValue={id} />
-                      <Input
-                        type="hidden"
-                        name="borrowerId"
-                        defaultValue={borrowedBy.id}
-                      />
-                      <Button
-                        variant="destructive"
-                        type="submit"
-                        name="intent"
-                        value={PlayIntent.RemoveBorrowVoucher}
-                      >
-                        Revoke lock
-                      </Button>
-                    </Form>
-                  )}
-                </div>
-              </div>
-            )}
+            <BorrowStatus
+              borrowVoucher={borrowVoucher}
+              user={user as unknown as User}
+              id={id}
+              system={system as unknown as System}
+            />
             <div className="mb-2">
               <Badge className="rounded bg-background" variant="outline">
                 {system.title}
@@ -567,25 +725,15 @@ export default function RomDetails() {
                 : summary}
             </p>
             <div className="flex flex-col lg:flex-row gap-4 w-full">
-              {!borrowedBy ? (
-                <Link
-                  to={`/play/${system.title}/${id}`}
-                  className={buttonVariants({ variant: "default" })}
-                  onClick={() => {
-                    fetcher.submit(
-                      { intent: Intent.UpdateLastPlayed, gameId: id },
-                      { method: "POST" }
-                    );
-                  }}
-                >
-                  Play Now
-                </Link>
-              ) : (
-                <Button disabled>Not available</Button>
-              )}
+              <GameActionButton
+                borrowVoucher={borrowVoucher as any}
+                user={user as unknown as User}
+                id={id}
+                system={system as unknown as System}
+                title={title}
+              />
               <Button variant="outline">Add to Favorites</Button>
             </div>
-            <fetcher.Form method="POST"></fetcher.Form>
           </div>
         </div>
       </div>

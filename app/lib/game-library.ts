@@ -159,10 +159,18 @@ export async function getGameDetailsData(id: number, user: User) {
       backgroundImage: true,
       summary: true,
       coverArt: true,
-      borrowedBy: {
+      borrowVoucher: {
         select: {
           id: true,
-          roleId: true,
+          returnedAt: true,
+          expiresAt: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              roleId: true,
+            },
+          },
         },
       },
       system: {

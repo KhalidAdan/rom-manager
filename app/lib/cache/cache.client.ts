@@ -1,4 +1,5 @@
 import localforage from "localforage";
+import { DETAILS_CACHE_KEY } from "../const";
 import { GameDetails, GameLibrary } from "../game-library";
 import { GenreInfo } from "../genre-library";
 
@@ -88,6 +89,14 @@ export let setDetailedInfoCache = (key: string, data: GameDetails) =>
 
 export async function clearAllCaches() {
   await Promise.all(Object.values(stores).map((store) => store.clear()));
+}
+
+export function clearDetailedInfoCaches() {
+  stores["detailedInfo"].clear();
+}
+
+export async function clearDetailedInfoCache(id: number) {
+  await stores["detailedInfo"].removeItem(DETAILS_CACHE_KEY(id));
 }
 
 export async function debugStorageInfo() {

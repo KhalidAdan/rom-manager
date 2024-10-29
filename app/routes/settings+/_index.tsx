@@ -28,6 +28,7 @@ import {
   findUniqueFileNames,
   processUploadedDirectory,
 } from "@/lib/fs.server";
+import { DetailsIntent } from "@/lib/intents";
 import { processQueuedGames, queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
@@ -130,25 +131,34 @@ export async function loader({ request }: LoaderFunctionArgs) {
         },
       },
     }),
-    prisma.gameStats.findMany({
+    prisma.game.findMany({
       where: {
-        game: {
-          userId: {
-            not: null,
+        borrowVoucher: {
+          returnedAt: null,
+          expiresAt: {
+            gt: new Date(),
           },
         },
       },
-      include: {
-        game: {
-          include: {
-            borrowedBy: true,
-            system: true,
+      select: {
+        id: true,
+        title: true,
+        system: {
+          select: {
+            title: true,
           },
         },
-        user: {
+        borrowVoucher: {
           select: {
             id: true,
-            email: true,
+            createdAt: true,
+            expiresAt: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
           },
         },
       },
@@ -240,7 +250,7 @@ async function disallowSignup(submission: Submission<DisallowSignup>) {
     include: {
       sessions: true,
       gameStats: true,
-      Game: true,
+      borrowVouchers: true,
     },
   });
 }
@@ -552,15 +562,32 @@ export default function SettingsPage() {
                 </TableHeader>
                 <TableBody>
                   {gamesLocked.length > 0 ? (
-                    gamesLocked.map((gameStats) => (
-                      <TableRow key={gameStats.id}>
-                        <TableCell>{gameStats.game.title}</TableCell>
-                        <TableCell>{gameStats.user.email}</TableCell>
-                        <TableCell>{gameStats.lastPlayedAt}</TableCell>
+                    gamesLocked.map((game) => (
+                      <TableRow key={game.id}>
+                        <TableCell>{game.title}</TableCell>
+                        <TableCell>{game.borrowVoucher?.user.email}</TableCell>
+                        <TableCell>{game.borrowVoucher?.createdAt}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="destructive">
-                            Revoke
-                          </Button>
+                          <Form
+                            method="POST"
+                            action={`/details/${game.system.title}/${game.id}`}
+                            navigate={false}
+                          >
+                            <Input
+                              type="hidden"
+                              name="gameId"
+                              value={game.id}
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              type="submit"
+                              name="intent"
+                              value={DetailsIntent.AdminRevokeBorrow}
+                            >
+                              Revoke
+                            </Button>
+                          </Form>
                         </TableCell>
                       </TableRow>
                     ))
