@@ -28,12 +28,12 @@ import {
 import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
 import { createClientLoader } from "@/lib/create-client-loader";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
+import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
 import cachified from "@epic-web/cachified";
 import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Search } from "lucide-react";
-import { Intent } from "./details.$system.$id";
 
 const HEADERS = {
   VERSION: "X-Explore-Version",
@@ -135,7 +135,7 @@ export default function Explore() {
                       onClick={() => {
                         fetcher.submit(
                           {
-                            intent: Intent.UpdateLastPlayed,
+                            intent: DetailsIntent.UpdateLastPlayed,
                             gameId: randomGame.id,
                           },
                           { method: "POST" }
