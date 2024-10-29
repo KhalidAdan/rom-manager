@@ -147,7 +147,7 @@ export async function getGameLibrary(user: User) {
   };
 }
 
-export async function getGameDetailsData(id: number, user: User) {
+export async function getGameDetailsData(id: number) {
   let game = await prisma.game.findFirst({
     where: {
       id,
@@ -197,6 +197,5 @@ export async function getGameDetailsData(id: number, user: User) {
     ...game,
     coverArt: bufferToStringIfExists(game.coverArt),
     backgroundImage: bufferToStringIfExists(game.backgroundImage),
-    user,
   };
 }

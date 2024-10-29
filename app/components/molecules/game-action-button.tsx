@@ -1,5 +1,6 @@
 import { getGameDetailsData } from "@/lib/game-library";
 import { isActiveBorrow as borrowCheck } from "@/lib/utils";
+import { action } from "@/routes/details.$system.$id";
 import { System, User } from "@prisma/client";
 import { useFetcher } from "@remix-run/react";
 import { Button } from "../ui/button";
@@ -24,10 +25,14 @@ export function GameActionButton({
   title,
 }: GameActionButtonProps) {
   let activeBorrowVoucher = borrowVoucher && borrowCheck(borrowVoucher);
-  let borrowFetcher = useFetcher({ key: "borrow-game" });
-  let playFetcher = useFetcher({ key: "update-last-played-game" });
+  let borrowFetcher = useFetcher<typeof action>({ key: "borrow-game" });
+  let playFetcher = useFetcher<typeof action>({
+    key: "update-last-played-game",
+  });
 
-  if (!activeBorrowVoucher) {
+  let hasBorrowError = borrowFetcher.data && "error" in borrowFetcher.data;
+
+  if (!activeBorrowVoucher && !hasBorrowError) {
     return <BorrowDialog id={id} title={title} fetcher={borrowFetcher} />;
   }
 

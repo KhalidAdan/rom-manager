@@ -156,24 +156,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       key: DETAILS_CACHE_KEY(gameId),
       cache,
       async getFreshValue() {
-        return await getGameDetailsData(gameId, user);
+        return await getGameDetailsData(gameId);
       },
       ttl: CACHE_TTL,
       swr: CACHE_SWR,
     });
 
-    if (game.borrowVoucher && game.borrowVoucher.user.id !== user.id) {
-      throw redirect(`/details/${game.system.title}/${gameId}`);
-    }
-
-    return json(game, {
-      headers: {
-        [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
-        [HEADERS.ETAG]: `"${generateETag(game)}"`,
-        [HEADERS.VERSION]: globalVersions.details.toString(),
-      },
-    });
+    return json(
+      { ...game, user },
+      {
+        headers: {
+          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
+          [HEADERS.ETAG]: `"${generateETag(game)}"`,
+          [HEADERS.VERSION]: globalVersions.details.toString(),
+        },
+      }
+    );
   } catch (error) {
+    console.error(error);
     updateVersion("details");
     return json(
       { error: `${error}` },
@@ -195,6 +195,9 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
   }
 
   let { gameId } = submission.value;
+
+  updateVersion("details");
+  cache.delete(DETAILS_CACHE_KEY(gameId));
 
   try {
     let activeBorrows = await prisma.borrowVoucher.findMany({
@@ -255,9 +258,6 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
         returnedAt: null,
       },
     });
-
-    updateVersion("details");
-    cache.delete(DETAILS_CACHE_KEY(gameId));
 
     return json({ success: true });
   } catch (error) {

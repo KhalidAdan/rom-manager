@@ -67,6 +67,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     });
   } catch (error) {
+    console.error(error);
     updateVersion("gameLibrary");
     return json(
       {
