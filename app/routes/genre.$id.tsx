@@ -2,32 +2,69 @@ import { GenericCarousel } from "@/components/molecules/generic-carousel";
 import { StaticGameCard } from "@/components/molecules/static-game-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cache } from "@/lib/cache/cache.server";
-import { CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loaders";
-import { createLoader } from "@/lib/create-loaders.server";
+import { requireUser } from "@/lib/auth/auth.server";
+import { withClientCache } from "@/lib/cache/cache.client";
+import { cache, withCache } from "@/lib/cache/cache.server";
+import { CLIENT_CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
 import { GenreInfo, getGenreInfo } from "@/lib/genre-library";
 import { cn } from "@/lib/utils";
-import { Link, useLoaderData } from "@remix-run/react";
+import { hasPermission } from "@/lib/utils.server";
+import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import {
+  ClientLoaderFunctionArgs,
+  Link,
+  useLoaderData,
+} from "@remix-run/react";
 
-export let loader = createLoader<GenreInfo>({
-  cacheKey: (params) => GENRE_CACHE_KEY(params.id!),
-  cache,
-  async getFreshValue({ user, params }): Promise<GenreInfo> {
-    if (!params.id) throw new Error("genreId could not be pulled from URL");
-    return await getGenreInfo(Number(params.id), user.id);
-  },
-  versionKey: "genreInfo",
-});
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  let user = await requireUser(request);
 
-export let clientLoader = createClientLoader<GenreInfo>({
-  store: "genreInfo",
-  getCacheKey: (params) => {
-    if (!params.id) throw new Error("genreId could not be pulled from URL");
-    return GENRE_CACHE_KEY(params.id);
-  },
-  ttl: CACHE_TTL,
-});
+  let genreId = params.id;
+  if (!genreId) throw new Error("genreId could not be pulled from URL");
+
+  if (!hasPermission(user, { requireVerified: true })) {
+    throw redirect("/needs-permission");
+  }
+  let ifNoneMatch = request.headers.get("If-None-Match");
+
+  try {
+    let { data, eTag, headers } = await withCache<GenreInfo>({
+      key: GENRE_CACHE_KEY(genreId),
+      cache,
+      versionKey: "genreInfo",
+      getFreshValue: async () => await getGenreInfo(Number(genreId), user.id),
+    });
+
+    return json(ifNoneMatch === eTag ? null : data, {
+      status: ifNoneMatch === eTag ? 304 : 200,
+      headers,
+    });
+  } catch (error) {
+    return json(
+      { error: `${error}` },
+      { headers: { "Cache-Control": "no-cache" } }
+    );
+  }
+}
+
+export async function clientLoader({
+  request,
+  params,
+  serverLoader,
+}: ClientLoaderFunctionArgs) {
+  return withClientCache({
+    store: "genreInfo",
+    cacheKey: (params) => {
+      let genreId = params.id;
+      if (!genreId) throw new Error("genreId could not be pulled from URL");
+      return GENRE_CACHE_KEY(genreId);
+    },
+    ttl: CLIENT_CACHE_TTL,
+    serverLoader,
+    request,
+    params,
+  });
+}
 
 export default function GenrePage() {
   let data = useLoaderData<typeof loader>();

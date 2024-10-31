@@ -1,4 +1,3 @@
-// app/routes/emulator.tsx
 import { ContinuePlaying } from "@/components/molecules/continue-playing";
 import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
 import { GenreCards } from "@/components/molecules/genre-cards";
@@ -13,40 +12,75 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { requireUser } from "@/lib/auth/auth.server";
+import { withClientCache } from "@/lib/cache/cache.client";
 
-import { cache } from "@/lib/cache/cache.server";
-import { CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loaders";
-import { createLoader } from "@/lib/create-loaders.server";
+import { cache, withCache } from "@/lib/cache/cache.server";
+import { CLIENT_CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
-import { Link, useFetcher, useLoaderData } from "@remix-run/react";
-import { Search } from "lucide-react";
+import { hasPermission } from "@/lib/utils.server";
+import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import {
+  ClientLoaderFunctionArgs,
+  Link,
+  useFetcher,
+  useLoaderData,
+} from "@remix-run/react";
+import { SearchIcon } from "lucide-react";
 
-export let loader = createLoader<GameLibrary>({
-  cacheKey: EXPLORE_CACHE_KEY,
-  cache,
-  async getFreshValue({ user }): Promise<GameLibrary> {
-    return await getGameLibrary(user);
-  },
-  versionKey: "gameLibrary",
-});
+export async function loader({ request }: LoaderFunctionArgs) {
+  let user = await requireUser(request);
 
-export let clientLoader = createClientLoader<GameLibrary>({
-  store: "gameLibrary",
-  getCacheKey: () => EXPLORE_CACHE_KEY,
-  ttl: CACHE_TTL,
-});
+  if (!hasPermission(user, { requireVerified: true })) {
+    throw redirect("/needs-permission");
+  }
+  let ifNoneMatch = request.headers.get("If-None-Match");
+
+  try {
+    let { data, eTag, headers } = await withCache<GameLibrary>({
+      key: EXPLORE_CACHE_KEY,
+      cache,
+      versionKey: "gameLibrary",
+      getFreshValue: async () => await getGameLibrary(user),
+    });
+
+    return json(ifNoneMatch === eTag ? null : { ...data, eTag }, {
+      status: ifNoneMatch === eTag ? 304 : 200,
+      headers,
+    });
+  } catch (error) {
+    return json(
+      { error: `${error}` },
+      { headers: { "Cache-Control": "no-cache" } }
+    );
+  }
+}
+
+export async function clientLoader({
+  request,
+  params,
+  serverLoader,
+}: ClientLoaderFunctionArgs) {
+  return withClientCache({
+    store: "gameLibrary",
+    cacheKey: EXPLORE_CACHE_KEY,
+    ttl: CLIENT_CACHE_TTL,
+    serverLoader,
+    request,
+    params,
+  });
+}
 
 export default function Explore() {
+  let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
   if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;
-  let fetcher = useFetcher({ key: "update-last-played-game" });
 
   return (
     <main className="bg-black">
@@ -106,7 +140,7 @@ export default function Explore() {
                 "font-mono italic"
               )}
             >
-              <Search className="h-4 w-4 mr-2" /> Search
+              <SearchIcon className="h-4 w-4 mr-2" /> Search
             </Link>
             <Link
               to="/settings"

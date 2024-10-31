@@ -20,20 +20,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
-import { cache, generateETag, updateVersion } from "@/lib/cache/cache.server";
+import { withClientCache } from "@/lib/cache/cache.client";
+import { cache, updateVersion, withCache } from "@/lib/cache/cache.server";
 import {
-  CACHE_SWR,
-  CACHE_TTL,
+  CLIENT_CACHE_TTL,
   DETAILS_CACHE_KEY,
   EXPLORE_CACHE_KEY,
   MAX_UPLOAD_SIZE,
   ROM_MAX_SIZE,
   SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loaders";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
+import { hasPermission } from "@/lib/utils.server";
 import {
   getFormProps,
   getInputProps,
@@ -41,7 +41,6 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import cachified from "@epic-web/cachified";
 import { System, User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
 import {
@@ -52,7 +51,12 @@ import {
   unstable_parseMultipartFormData as parseMultipartFormData,
   redirect,
 } from "@remix-run/node";
-import { Form, useLoaderData, useNavigate } from "@remix-run/react";
+import {
+  ClientLoaderFunctionArgs,
+  Form,
+  useLoaderData,
+  useNavigate,
+} from "@remix-run/react";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
@@ -132,39 +136,30 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
     throw redirect(`/needs-permission`);
   }
+  if (!hasPermission(user, { requireVerified: true })) {
+    throw redirect("/needs-permission");
+  }
 
   let gameId = Number(params.id);
+  if (!gameId) throw new Error("gameId could not be pulled from URL");
 
+  let ifNoneMatch = request.headers.get("If-None-Match");
   try {
-    let game = await cachified({
+    let { data, eTag, headers } = await withCache<GameDetails>({
       key: DETAILS_CACHE_KEY(gameId),
       cache,
-      async getFreshValue() {
-        return await getGameDetailsData(gameId);
-      },
-      ttl: CACHE_TTL,
-      swr: CACHE_SWR,
+      versionKey: "detailedInfo",
+      getFreshValue: async () => await getGameDetailsData(gameId),
     });
 
-    return json(
-      { ...game, user },
-      {
-        headers: {
-          "Cache-Control": "max-age=900, stale-while-revalidate=3600",
-          ETag: `"${generateETag(game, "details")}"`,
-        },
-      }
-    );
+    return json(ifNoneMatch === eTag ? null : { ...data, user, eTag }, {
+      status: ifNoneMatch === eTag ? 304 : 200,
+      headers,
+    });
   } catch (error) {
-    console.error(error);
-    updateVersion("details");
     return json(
       { error: `${error}` },
-      {
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      }
+      { headers: { "Cache-Control": "no-cache" } }
     );
   }
 }
@@ -178,7 +173,7 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
 
   let { gameId } = submission.value;
 
-  updateVersion("details");
+  updateVersion("detailedInfo");
   cache.delete(DETAILS_CACHE_KEY(gameId));
 
   try {
@@ -277,7 +272,7 @@ async function returnGame(submission: Submission<ReturnGame>, userId: number) {
       data: { returnedAt: new Date() },
     });
 
-    updateVersion("details");
+    updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
     return json({ success: true });
@@ -317,7 +312,7 @@ async function adminRevokeBorrow(
       },
     });
 
-    updateVersion("details");
+    updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
     return json({ success: true });
@@ -411,7 +406,7 @@ async function deleteRom(submission: Submission<DeleteROM>) {
   }
 
   let { id } = submission.value;
-  updateVersion("details");
+  updateVersion("detailedInfo");
   updateVersion("gameLibrary");
   updateVersion("genreInfo");
   cache.delete(DETAILS_CACHE_KEY(id));
@@ -476,7 +471,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         schema: UpdateMetadata,
       });
 
-      updateVersion("details");
+      updateVersion("detailedInfo");
       cache.delete(DETAILS_CACHE_KEY(gameId));
       return await updateMetadata(submission);
     }
@@ -486,7 +481,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         schema: DeleteROM,
       });
 
-      updateVersion("details");
+      updateVersion("detailedInfo");
       cache.delete(EXPLORE_CACHE_KEY);
       return await deleteRom(submission);
     }
@@ -499,15 +494,30 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 }
 
-export let clientLoader = createClientLoader<GameDetails>({
-  store: "detailedInfo",
-  getCacheKey: (params) => DETAILS_CACHE_KEY(Number(params.id)),
-  ttl: CACHE_TTL,
-});
+export async function clientLoader({
+  request,
+  params,
+  serverLoader,
+}: ClientLoaderFunctionArgs) {
+  return withClientCache({
+    store: "detailedInfo",
+    cacheKey: (params) => {
+      let genreId = params.id;
+      if (!genreId) throw new Error("genreId could not be pulled from URL");
+      return DETAILS_CACHE_KEY(Number(genreId));
+    },
+    ttl: CLIENT_CACHE_TTL,
+    serverLoader,
+    request,
+    params,
+  });
+}
 
 export default function RomDetails() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data.error}</div>;
+  if (!data) return <div>Error occured, no data returned from loader</div>;
+  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
+
   let {
     id,
     title,
