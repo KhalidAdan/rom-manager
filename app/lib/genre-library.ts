@@ -1,9 +1,9 @@
 import { bufferToStringIfExists } from "./fs.server";
 import { prisma } from "./prisma.server";
 
-export type GenreInfo = ReturnType<typeof fetchGenreInfo>;
+export type GenreInfo = ReturnType<typeof getGenreInfo>;
 
-export async function fetchGenreInfo(genreId: number, userId: number) {
+export async function getGenreInfo(genreId: number, userId: number) {
   let [activeGenre, allGenres, gamesInGenre, gameStats] = await Promise.all([
     prisma.genre.findUnique({
       where: { id: genreId },

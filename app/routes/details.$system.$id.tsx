@@ -20,16 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
-import {
-  getDetailedInfoCache,
-  setDetailedInfoCache,
-} from "@/lib/cache/cache.client";
-import {
-  cache,
-  generateETag,
-  globalVersions,
-  updateVersion,
-} from "@/lib/cache/cache.server";
+import { cache, generateETag, updateVersion } from "@/lib/cache/cache.server";
 import {
   CACHE_SWR,
   CACHE_TTL,
@@ -39,7 +30,7 @@ import {
   ROM_MAX_SIZE,
   SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loader";
+import { createClientLoader } from "@/lib/create-client-loaders";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
@@ -65,13 +56,6 @@ import { Form, useLoaderData, useNavigate } from "@remix-run/react";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
-
-const HEADERS = {
-  VERSION: "X-Details-Version",
-  AUTH_STATE: "X-Auth-State",
-  CACHE_CONTROL: "Cache-Control",
-  ETAG: "ETag",
-} as const;
 
 type RomDetails = {
   name: string;
@@ -166,9 +150,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       { ...game, user },
       {
         headers: {
-          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
-          [HEADERS.ETAG]: `"${generateETag(game)}"`,
-          [HEADERS.VERSION]: globalVersions.details.toString(),
+          "Cache-Control": "max-age=900, stale-while-revalidate=3600",
+          ETag: `"${generateETag(game, "details")}"`,
         },
       }
     );
@@ -179,8 +162,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       { error: `${error}` },
       {
         headers: {
-          [HEADERS.CACHE_CONTROL]: "no-cache",
-          [HEADERS.VERSION]: globalVersions.details.toString(),
+          "Cache-Control": "no-cache",
         },
       }
     );
@@ -518,10 +500,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export let clientLoader = createClientLoader<GameDetails>({
+  store: "detailedInfo",
   getCacheKey: (params) => DETAILS_CACHE_KEY(Number(params.id)),
-  getCache: getDetailedInfoCache,
-  setCache: setDetailedInfoCache,
-  CACHE_TTL: CACHE_TTL,
+  ttl: CACHE_TTL,
 });
 
 export default function RomDetails() {

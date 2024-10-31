@@ -1,41 +1,35 @@
 import localforage from "localforage";
-import { DETAILS_CACHE_KEY } from "../const";
 import { GameDetails, GameLibrary } from "../game-library";
 import { GenreInfo } from "../genre-library";
 
 export interface CachedData<T> {
   data: T;
   timestamp: number;
-  version: string;
+  eTag: string;
 }
 
-let STORES = {
+const STORE_CONFIG = {
   gameLibrary: {
     name: "gameLibrary",
-    type: "games-cache" as const,
+    type: "games-cache",
     description: "Cached game library data",
   },
   genreInfo: {
     name: "genreInfo",
-    type: "genres-cache" as const,
+    type: "genres-cache",
     description: "Cached genre info data",
   },
   detailedInfo: {
     name: "detailedInfo",
-    type: "details-cache" as const,
+    type: "details-cache",
     description: "Cached details info data",
   },
 } as const;
 
-type StoreKey = keyof typeof STORES;
-export type StoreData = {
-  gameLibrary: CachedData<GameLibrary>;
-  genreInfo: CachedData<GenreInfo>;
-  detailedInfo: CachedData<GameDetails>;
-};
+export type StoreKey = keyof typeof STORE_CONFIG;
 
-let stores = Object.fromEntries(
-  Object.entries(STORES).map(([key, config]) => [
+const stores = Object.fromEntries(
+  Object.entries(STORE_CONFIG).map(([key, config]) => [
     key,
     localforage.createInstance({
       ...config,
@@ -44,82 +38,67 @@ let stores = Object.fromEntries(
   ])
 ) as { [K in StoreKey]: LocalForage };
 
-async function getCache<K extends StoreKey>(
-  storeName: K,
-  key: string
-): Promise<StoreData[K] | null> {
-  try {
-    return await stores[storeName].getItem(key);
-  } catch (error) {
-    console.error(`Failed to get from ${storeName} cache:`, error);
-    return null;
-  }
+interface CacheStore<T> {
+  get: (key: string) => Promise<CachedData<T> | null>;
+  set: (key: string, data: T) => Promise<void>;
+  clear: () => Promise<void>;
+  clearKey: (key: string) => Promise<void>;
 }
 
-async function setCache<K extends StoreKey>(
-  storeName: K,
-  key: string,
-  data: StoreData[K]["data"]
-): Promise<void> {
-  try {
-    await stores[storeName].setItem(key, {
-      data,
-      timestamp: Date.now(),
-    });
-  } catch (error) {
-    console.error(`Failed to set ${storeName} cache:`, error);
-  }
+const cacheManager = {
+  gameLibrary: createStore<GameLibrary>("gameLibrary"),
+  genreInfo: createStore<GenreInfo>("genreInfo"),
+  detailedInfo: createStore<GameDetails>("detailedInfo"),
+  clearAll: async () => {
+    await Promise.all(Object.values(stores).map((store) => store.clear()));
+  },
+};
+
+export type StoreData = {
+  gameLibrary: CachedData<GameLibrary>;
+  genreInfo: CachedData<GenreInfo>;
+  detailedInfo: CachedData<GameDetails>;
+};
+
+function createStore<T>(storeName: StoreKey): CacheStore<T> {
+  return {
+    async get(key: string) {
+      try {
+        return await stores[storeName].getItem(key);
+      } catch (error) {
+        console.error(`Failed to get from ${storeName} cache:`, error);
+        return null;
+      }
+    },
+    async set(key: string, data: T) {
+      try {
+        await stores[storeName].setItem<CachedData<T>>(key, {
+          data,
+          timestamp: Date.now(),
+          eTag: "",
+        });
+      } catch (error) {
+        console.error(`Failed to set ${storeName} cache:`, error);
+      }
+    },
+    async clear() {
+      try {
+        await stores[storeName].clear();
+      } catch (error) {
+        console.error(`Failed to clear ${storeName} cache:`, error);
+      }
+    },
+    async clearKey(key: string) {
+      try {
+        await stores[storeName].removeItem(key);
+      } catch (error) {
+        console.error(
+          `Failed to clear key ${key} from ${storeName} cache:`,
+          error
+        );
+      }
+    },
+  };
 }
 
-export let getGameLibraryCache = (key: string) => getCache("gameLibrary", key);
-
-export let getGenreInfoCache = (key: string) => getCache("genreInfo", key);
-
-export let getDetailedInfoCache = (key: string) =>
-  getCache("detailedInfo", key);
-
-export let setGameLibraryCache = (key: string, data: GameLibrary) =>
-  setCache("gameLibrary", key, data);
-
-export let setGenreInfoCache = (key: string, data: GenreInfo) =>
-  setCache("genreInfo", key, data);
-
-export let setDetailedInfoCache = (key: string, data: GameDetails) =>
-  setCache("detailedInfo", key, data);
-
-export async function clearAllCaches() {
-  await Promise.all(Object.values(stores).map((store) => store.clear()));
-}
-
-export function clearDetailedInfoCaches() {
-  stores["detailedInfo"].clear();
-}
-
-export async function clearDetailedInfoCache(id: number) {
-  await stores["detailedInfo"].removeItem(DETAILS_CACHE_KEY(id));
-}
-
-export async function debugStorageInfo() {
-  for (let [name, store] of Object.entries(stores)) {
-    try {
-      let keys = await store.keys();
-      let totalSize = await keys.reduce(async (accPromise, key) => {
-        let acc = await accPromise;
-        let value = await store.getItem(key);
-        return acc + new Blob([JSON.stringify(value)]).size;
-      }, Promise.resolve(0));
-
-      console.log({
-        store: name,
-        driver:
-          (await store.driver()) === localforage.INDEXEDDB
-            ? "IndexedDB"
-            : "other",
-        size: `${(totalSize / 1024 / 1024).toFixed(2)}MB`,
-        keys: keys.length,
-      });
-    } catch (error) {
-      console.error(`Error checking ${name} storage:`, error);
-    }
-  }
-}
+export const getCacheManager = () => cacheManager;

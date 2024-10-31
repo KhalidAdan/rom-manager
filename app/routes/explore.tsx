@@ -13,86 +13,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { requireUser } from "@/lib/auth/auth.server";
-import { UserRoles } from "@/lib/auth/providers.server";
-import {
-  getGameLibraryCache,
-  setGameLibraryCache,
-} from "@/lib/cache/cache.client";
-import {
-  cache,
-  generateETag,
-  globalVersions,
-  updateVersion,
-} from "@/lib/cache/cache.server";
-import { CACHE_SWR, CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loader";
+
+import { cache } from "@/lib/cache/cache.server";
+import { CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
+import { createClientLoader } from "@/lib/create-client-loaders";
+import { createLoader } from "@/lib/create-loaders.server";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
-import cachified from "@epic-web/cachified";
-import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { Search } from "lucide-react";
 
-const HEADERS = {
-  VERSION: "X-Explore-Version",
-  AUTH_STATE: "X-Auth-State",
-  CACHE_CONTROL: "Cache-Control",
-  ETAG: "ETag",
-} as const;
-
-export async function loader({ request }: LoaderFunctionArgs) {
-  let user = await requireUser(request);
-  if (user.signupVerifiedAt == null && user.roleId !== UserRoles.ADMIN) {
-    throw redirect(`/needs-permission`);
-  }
-
-  try {
-    let data = await cachified({
-      key: EXPLORE_CACHE_KEY,
-      cache,
-      async getFreshValue() {
-        return await getGameLibrary(user);
-      },
-      ttl: CACHE_TTL,
-      swr: CACHE_SWR,
-    });
-
-    return json(data, {
-      headers: {
-        [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
-        [HEADERS.ETAG]: `"${generateETag(data)}"`,
-        [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
-      },
-    });
-  } catch (error) {
-    console.error(error);
-    updateVersion("gameLibrary");
-    return json(
-      {
-        error: `${error}`,
-      },
-      {
-        headers: {
-          [HEADERS.CACHE_CONTROL]: "no-cache",
-          [HEADERS.VERSION]: globalVersions.gameLibrary.toString(),
-        },
-      }
-    );
-  }
-}
+export let loader = createLoader<GameLibrary>({
+  cacheKey: EXPLORE_CACHE_KEY,
+  cache,
+  async getFreshValue({ user }): Promise<GameLibrary> {
+    return await getGameLibrary(user);
+  },
+  versionKey: "gameLibrary",
+});
 
 export let clientLoader = createClientLoader<GameLibrary>({
+  store: "gameLibrary",
   getCacheKey: () => EXPLORE_CACHE_KEY,
-  getCache: getGameLibraryCache,
-  setCache: setGameLibraryCache,
-  CACHE_TTL: CACHE_TTL,
+  ttl: CACHE_TTL,
 });
 
 export default function Explore() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data.error}</div>;
+  if (!data) return <div>Error occured, no data returned from loader</div>;
+  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;

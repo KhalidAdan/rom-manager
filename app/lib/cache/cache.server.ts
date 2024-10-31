@@ -5,10 +5,10 @@ import { LRUCache } from "lru-cache";
 
 let lruCache = remember(
   "lruCache",
-  () => new LRUCache<string, CacheEntry>({ max: 1000 })
+  () => new LRUCache<string, CacheEntry>({ max: 1000, ttlAutopurge: true })
 );
 
-interface GlobalVersions {
+export interface GlobalVersions {
   genreInfo: number;
   gameLibrary: number;
   details: number;
@@ -24,14 +24,20 @@ export function updateVersion(key: keyof GlobalVersions) {
   globalVersions[key] = Date.now();
 }
 
-export function generateETag(data: any): string {
+export function generateETag(
+  data: any,
+  versionKey: keyof GlobalVersions
+): string {
   let content = typeof data === "string" ? data : JSON.stringify(data);
-  let hash = crypto.createHash("sha256").update(content).digest("hex");
+  let versionedContent = `${content}-${globalVersions[versionKey]}`;
+  let hash = crypto.createHash("sha256").update(versionedContent).digest("hex");
 
   return hash;
 }
 
-export let cache: Cache & { clear: () => void } = {
+export type CacheType = Cache & { clear: () => void };
+
+export let cache: CacheType = {
   set(key, value) {
     let ttl = totalTtl(value?.metadata);
     return lruCache.set(key, value, {

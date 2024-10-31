@@ -1,4 +1,4 @@
-import { clearAllCaches } from "@/lib/cache/cache.client";
+import { getCacheManager } from "@/lib/cache/cache.client";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import { Form } from "@remix-run/react";
@@ -33,7 +33,7 @@ export function DeleteROMForm({ id }: { id: number }) {
       onSubmit={async (e) => {
         if (!confirm("Are you sure you want to delete this rom?")) {
           e.preventDefault();
-          await clearAllCaches();
+          await getCacheManager().clearAll();
           return;
         }
       }}

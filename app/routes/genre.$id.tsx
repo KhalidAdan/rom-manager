@@ -2,93 +2,37 @@ import { GenericCarousel } from "@/components/molecules/generic-carousel";
 import { StaticGameCard } from "@/components/molecules/static-game-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/auth.server";
-import { UserRoles } from "@/lib/auth/providers.server";
-import { getGenreInfoCache, setGenreInfoCache } from "@/lib/cache/cache.client";
-import {
-  cache,
-  generateETag,
-  globalVersions,
-  updateVersion,
-} from "@/lib/cache/cache.server";
+import { cache } from "@/lib/cache/cache.server";
 import { CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
-import { createClientLoader } from "@/lib/create-client-loader";
-import { fetchGenreInfo, GenreInfo } from "@/lib/genre-library";
+import { createClientLoader } from "@/lib/create-client-loaders";
+import { createLoader } from "@/lib/create-loaders.server";
+import { GenreInfo, getGenreInfo } from "@/lib/genre-library";
 import { cn } from "@/lib/utils";
-import cachified from "@epic-web/cachified";
-import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
-let HEADERS = {
-  VERSION: "X-Genre-Version",
-  CACHE_CONTROL: "Cache-Control",
-  ETAG: "ETag",
-} as const;
-
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  let user = await requireUser(request);
-
-  if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN)
-    throw redirect(`/needs-permission`);
-
-  let genreId = params.id;
-
-  try {
-    if (!genreId) throw new Error("genreId could not be pulled from URL");
-
-    let genreInfo = await cachified({
-      key: GENRE_CACHE_KEY(genreId),
-      cache,
-      async getFreshValue() {
-        let info = await fetchGenreInfo(Number(genreId), user.id);
-
-        return info;
-      },
-    });
-
-    let version = globalVersions.genreInfo.toString();
-
-    return json(
-      {
-        ...genreInfo,
-        _meta: {
-          version,
-        },
-      },
-      {
-        headers: {
-          [HEADERS.CACHE_CONTROL]: "max-age=900, stale-while-revalidate=3600",
-          [HEADERS.ETAG]: `"${generateETag(genreInfo)}"`,
-          [HEADERS.VERSION]: globalVersions.genreInfo.toString(),
-        },
-      }
-    );
-  } catch (error) {
-    updateVersion("genreInfo");
-    return json(
-      {
-        error: `${error}`,
-      },
-      {
-        headers: {
-          [HEADERS.CACHE_CONTROL]: "no-cache",
-          [HEADERS.VERSION]: globalVersions.genreInfo.toString(),
-        },
-      }
-    );
-  }
-}
+export let loader = createLoader<GenreInfo>({
+  cacheKey: (params) => GENRE_CACHE_KEY(params.id!),
+  cache,
+  async getFreshValue({ user, params }): Promise<GenreInfo> {
+    if (!params.id) throw new Error("genreId could not be pulled from URL");
+    return await getGenreInfo(Number(params.id), user.id);
+  },
+  versionKey: "genreInfo",
+});
 
 export let clientLoader = createClientLoader<GenreInfo>({
-  getCacheKey: (params) => GENRE_CACHE_KEY(params.id),
-  getCache: getGenreInfoCache,
-  setCache: setGenreInfoCache,
-  CACHE_TTL: CACHE_TTL,
+  store: "genreInfo",
+  getCacheKey: (params) => {
+    if (!params.id) throw new Error("genreId could not be pulled from URL");
+    return GENRE_CACHE_KEY(params.id);
+  },
+  ttl: CACHE_TTL,
 });
 
 export default function GenrePage() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data.error}</div>;
+  if (!data) return <div>Error occured, no data returned from loader</div>;
+  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
   let {
     activeGenre,

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { clearDetailedInfoCache } from "@/lib/cache/cache.client";
+import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { formatDateTime, isActiveBorrow } from "@/lib/utils";
 import { System, User } from "@prisma/client";
@@ -59,7 +59,7 @@ export function BorrowStatus({
               action={`/details/${system.title}/${id}`}
               navigate={false}
               className="pt-2"
-              onSubmit={() => clearDetailedInfoCache(id)}
+              onSubmit={() => getCacheManager().detailedInfo.clear()}
             >
               <Input type="hidden" name="gameId" defaultValue={id} />
               <Input

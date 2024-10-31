@@ -25,7 +25,7 @@ export const CATEGORY_REMAKE = 8;
 export const CATEGORY_EXPANDED_GAME = 10;
 export const CATEGORY_PORT = 11;
 
-export const CACHE_TTL = 3_600_000; // ms in 1hr
+export const CACHE_TTL = 900_000;
 export const CACHE_SWR = 45_000;
 
 export const SEVEN_DAYS_EPOCH = Date.now() + 7 * 24 * 60 * 60 * 1000;
