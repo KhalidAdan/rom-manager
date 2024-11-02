@@ -3,8 +3,8 @@ import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import { Form } from "@remix-run/react";
 import { z } from "zod";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
+import { Button } from "../atoms/button";
+import { Input } from "../atoms/input";
 
 export let DeleteROM = z.object({
   id: z.number(),

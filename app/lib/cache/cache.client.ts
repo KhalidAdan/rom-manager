@@ -85,7 +85,7 @@ function createStore<T>(storeName: StoreKey): CacheStore<T> {
         await stores[storeName].setItem<CachedData<T>>(key, {
           data: data.data,
           timestamp: Date.now(),
-          eTag: data.eTag || "",
+          eTag: data.eTag,
         });
       } catch (error) {
         console.error(`Failed to set ${storeName} cache:`, error);
@@ -144,20 +144,25 @@ export async function withClientCache<T, S extends StoreKey>({
       if (!isExpired) return cached.data;
 
       if (cached.eTag) {
-        let versionCheck = await fetch(request.url, {
-          method: "HEAD",
-          headers: {
-            "If-None-Match": cached.eTag,
-          },
-        });
-
-        if (versionCheck.status === 304) {
-          await cacheManager[store].set(key, {
-            data: { ...cached } as any,
-            timestamp: Date.now(),
-            eTag: cached.eTag,
+        try {
+          await fetch(request.url, {
+            method: "HEAD",
+            headers: {
+              "If-None-Match": cached.eTag,
+              "Cache-Control": "no-cache",
+            },
           });
-          return cached.data;
+        } catch (error) {
+          if (error instanceof Response && error.status === 304) {
+            await cacheManager[store].set(key, {
+              data: { ...cached } as any,
+              timestamp: Date.now(),
+              eTag: cached.eTag,
+            });
+
+            return cached;
+          }
+          throw error;
         }
       }
     }

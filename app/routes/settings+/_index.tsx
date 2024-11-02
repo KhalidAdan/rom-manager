@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/atoms/button";
 import {
   Card,
   CardContent,
@@ -6,10 +6,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/components/atoms/card";
+import { Checkbox } from "@/components/atoms/checkbox";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
 import {
   Table,
   TableBody,
@@ -17,7 +17,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/atoms/table";
 import { useIsSubmitting } from "@/hooks/use-is-submitting";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
@@ -31,6 +31,7 @@ import {
 import { DetailsIntent } from "@/lib/intents";
 import { processQueuedGames, queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
+import { RefusalReason } from "@/lib/refusal-reasons";
 import { cn } from "@/lib/utils";
 import {
   getFormProps,
@@ -57,10 +58,6 @@ enum Intent {
   UPDATE_SHOW_CATEGORY_RECS = "update-show-category-recs",
   UPDATE_SHOW_DISCOVERY = "update-show-discovery",
   UPDATE_SPOTLIGHT_INCOMPLETE_GAME = "update-spotlight-incomplete-game",
-}
-
-enum RefusalReason {
-  NOT_ALLOWED = "not-allowed",
 }
 
 let FolderScanSchema = z.object({

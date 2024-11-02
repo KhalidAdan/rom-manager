@@ -1,7 +1,7 @@
+import { buttonVariants } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
 import { GameCard, GameCardSkeleton } from "@/components/molecules/game-card";
 import { SuggestionCard } from "@/components/molecules/suggestion-card";
-import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { requireUser } from "@/lib/auth/auth.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";

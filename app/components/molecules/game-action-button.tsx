@@ -3,7 +3,7 @@ import { isActiveBorrow as borrowCheck } from "@/lib/utils";
 import { action } from "@/routes/details.$system.$id";
 import { System, User } from "@prisma/client";
 import { useFetcher } from "@remix-run/react";
-import { Button } from "../ui/button";
+import { Button } from "../atoms/button";
 import { BorrowDialog } from "./borrow-dialog";
 import { PlayControls } from "./play-controls";
 

@@ -1,11 +1,11 @@
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/atoms/button";
 import {
   Card,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/atoms/card";
 import { getUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import { prisma } from "@/lib/prisma.server";

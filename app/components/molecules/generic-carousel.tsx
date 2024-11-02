@@ -4,7 +4,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel";
+} from "@/components/atoms/carousel";
 import { useResponsiveSlideScroll } from "@/hooks/use-responsive-slide-scroll";
 import { cn } from "@/lib/utils";
 import React, { useMemo } from "react";

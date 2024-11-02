@@ -1,8 +1,8 @@
 import { Game, System } from "@prisma/client";
 import { Link } from "@remix-run/react";
 import { PlayCircle } from "lucide-react";
-import { Badge } from "../ui/badge";
-import { buttonVariants } from "../ui/button";
+import { Badge } from "../atoms/badge";
+import { buttonVariants } from "../atoms/button";
 
 type ContinuePlayingProps = {
   lastPlayedGame: Pick<Game, "id" | "title" | "summary"> & {

@@ -1,4 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/atoms/card";
 import { cn } from "@/lib/utils";
 import { Link } from "@remix-run/react";
 import { GenericCarousel } from "./generic-carousel";

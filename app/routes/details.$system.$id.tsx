@@ -1,12 +1,6 @@
-import { BorrowStatus } from "@/components/molecules/borrow-status";
-import {
-  DeleteROM,
-  DeleteROMForm,
-} from "@/components/molecules/delete-rom-form";
-import { GameActionButton } from "@/components/molecules/game-action-button";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Badge } from "@/components/atoms/badge";
+import { Button } from "@/components/atoms/button";
+import { DatePicker } from "@/components/atoms/date-picker";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/atoms/dialog";
+import { Input } from "@/components/atoms/input";
+import { Textarea } from "@/components/atoms/textarea";
+import { BorrowStatus } from "@/components/molecules/borrow-status";
+import {
+  DeleteROM,
+  DeleteROMForm,
+} from "@/components/molecules/delete-rom-form";
+import { GameActionButton } from "@/components/molecules/game-action-button";
+import { useRefusalReason } from "@/hooks/use-refusal-reason";
+import { useToast } from "@/hooks/use-toast";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import { withClientCache } from "@/lib/cache/cache.client";
@@ -58,7 +60,7 @@ import {
   useNavigate,
 } from "@remix-run/react";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 type RomDetails = {
@@ -131,6 +133,10 @@ let UpdateLastPlayed = z.object({
 
 type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
+type LoaderData = {
+  user: Awaited<ReturnType<typeof requireUser>>;
+} & Awaited<ReturnType<typeof getGameDetailsData>>;
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
@@ -152,13 +158,28 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       getFreshValue: async () => await getGameDetailsData(gameId),
     });
 
-    return json(ifNoneMatch === eTag ? null : { ...data, user, eTag }, {
-      status: ifNoneMatch === eTag ? 304 : 200,
-      headers,
-    });
-  } catch (error) {
+    if (ifNoneMatch === eTag) {
+      // json() does not support 304 responses
+      throw new Response(null, {
+        status: 304,
+        headers,
+      });
+    }
+
     return json(
-      { error: `${error}` },
+      { ...data, user, eTag },
+      {
+        status: 200,
+        headers,
+      }
+    );
+  } catch (throwable) {
+    if (throwable instanceof Response && throwable.status === 304) {
+      // this is the response to the HEAD request in the loader
+      return throwable as unknown as LoaderData;
+    }
+    return json(
+      { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );
   }
@@ -455,6 +476,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       let submission = parseWithZod(formData, {
         schema: AdminRevokeBorrow,
       });
+      cache.delete(DETAILS_CACHE_KEY(gameId));
       return await adminRevokeBorrow(submission, user.id);
     }
 
@@ -514,7 +536,25 @@ export async function clientLoader({
 }
 
 export default function RomDetails() {
+  let navigate = useNavigate();
+  let { toast } = useToast();
+  let { shouldShowToast, refusalConfig } = useRefusalReason();
+
+  useEffect(() => {
+    if (shouldShowToast && refusalConfig) {
+      toast({
+        title: refusalConfig.title,
+        description: refusalConfig.description,
+        variant: refusalConfig.variant,
+      });
+
+      let newUrl = window.location.pathname.toLocaleLowerCase();
+      navigate(newUrl, { replace: true });
+    }
+  }, [shouldShowToast, refusalConfig, toast, navigate]);
+
   let data = useLoaderData<typeof loader>();
+
   if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
@@ -536,7 +576,6 @@ export default function RomDetails() {
 
     return date;
   });
-  let navigate = useNavigate();
 
   let [form, fields] = useForm({
     constraint: getZodConstraint(UpdateMetadata),

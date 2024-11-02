@@ -1,5 +1,5 @@
-import { buttonVariants } from "@/components/ui/button";
-import { RainbowButton } from "@/components/ui/rainbow-button";
+import { buttonVariants } from "@/components/atoms/button";
+import { RainbowButton } from "@/components/atoms/rainbow-button";
 import { getUser } from "@/lib/auth/auth.server";
 import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";

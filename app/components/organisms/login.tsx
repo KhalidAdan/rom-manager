@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/atoms/button";
 import { cn } from "@/lib/utils";
 import { action } from "@/routes/auth_+/$provider";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
@@ -6,8 +6,8 @@ import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import { useFetcher } from "@remix-run/react";
 import { LoaderIcon } from "lucide-react";
 import { z } from "zod";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
+import { Input } from "../atoms/input";
+import { Label } from "../atoms/label";
 
 let FormSchema = z.object({
   email: z.string({ message: "email must not be empty" }).email().min(1),

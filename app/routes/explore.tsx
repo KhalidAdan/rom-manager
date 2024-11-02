@@ -1,8 +1,4 @@
-import { ContinuePlaying } from "@/components/molecules/continue-playing";
-import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
-import { GenreCards } from "@/components/molecules/genre-cards";
-import RomManager from "@/components/molecules/rom-manager";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/atoms/button";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/atoms/dialog";
+import { ContinuePlaying } from "@/components/molecules/continue-playing";
+import { DiscoveryQueue } from "@/components/molecules/discovery-queue";
+import { GenreCards } from "@/components/molecules/genre-cards";
+import RomManager from "@/components/molecules/rom-manager";
 import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
-
 import { cache, withCache } from "@/lib/cache/cache.server";
 import { CLIENT_CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
@@ -46,13 +45,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
       getFreshValue: async () => await getGameLibrary(user),
     });
 
-    return json(ifNoneMatch === eTag ? null : { ...data, eTag }, {
-      status: ifNoneMatch === eTag ? 304 : 200,
-      headers,
-    });
-  } catch (error) {
+    if (ifNoneMatch === eTag) {
+      // json() does not support 304 responses
+      throw new Response(null, {
+        status: 304,
+        headers,
+      });
+    }
+
     return json(
-      { error: `${error}` },
+      { ...data, eTag },
+      {
+        status: 200,
+        headers,
+      }
+    );
+  } catch (throwable) {
+    if (throwable instanceof Response && throwable.status === 304) {
+      // this is the response to the HEAD request in the loader
+      return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
+    }
+    return json(
+      { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );
   }
@@ -76,7 +90,6 @@ export async function clientLoader({
 export default function Explore() {
   let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
-  if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =

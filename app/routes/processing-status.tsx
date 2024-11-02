@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/atoms/button";
 import {
   Card,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/components/atoms/card";
 import { processQueuedGames } from "@/lib/jobs";
 import { LoaderFunctionArgs } from "@remix-run/node";
 

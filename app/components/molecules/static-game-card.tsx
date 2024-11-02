@@ -1,6 +1,6 @@
 import { Link } from "@remix-run/react";
-import { Badge } from "../ui/badge";
-import { Card, CardContent } from "../ui/card";
+import { Badge } from "../atoms/badge";
+import { Card, CardContent } from "../atoms/card";
 
 type StaticGameCardType = {
   id: number;

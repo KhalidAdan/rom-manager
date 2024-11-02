@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/atoms/button";
 import { useHints } from "@/lib/client-hints";
 import { useRequestInfo } from "@/lib/request-info";
 import { setTheme } from "@/lib/theme.server";

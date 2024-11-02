@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/atoms/button";
 import {
   Dialog,
   DialogClose,
@@ -8,14 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/atoms/dialog";
 
 import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { FetcherWithComponents } from "@remix-run/react";
 import { AlertCircle } from "lucide-react";
 import { useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "../atoms/alert";
 
 interface BorrowDialogProps {
   id: number;

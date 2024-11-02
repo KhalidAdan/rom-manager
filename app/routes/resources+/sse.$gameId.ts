@@ -32,7 +32,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           revokeSent = true;
 
           revokeFinalTimer = setTimeout(() => {
-            console.log("revoking final user lock");
             send({
               event: "message",
               data: JSON.stringify({

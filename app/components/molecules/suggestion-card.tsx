@@ -1,6 +1,6 @@
 import { Genre } from "@prisma/client";
 import { Link } from "@remix-run/react";
-import { Card, CardContent } from "../ui/card";
+import { Card, CardContent } from "../atoms/card";
 
 export function SuggestionCard({
   id,

@@ -26,7 +26,7 @@ import spaceMonoBoldItalic from "/fonts/SpaceMono/SpaceMono-BoldItalic.ttf";
 import spaceMonoItalic from "/fonts/SpaceMono/SpaceMono-Italic.ttf";
 import spaceMonoRegular from "/fonts/SpaceMono/SpaceMono-Regular.ttf";
 
-import { Toaster } from "./components/ui/toaster";
+import { Toaster } from "./components/atoms/toaster";
 import { getHints } from "./lib/client-hints";
 import { getTheme } from "./lib/theme.server";
 import "./tailwind.css";

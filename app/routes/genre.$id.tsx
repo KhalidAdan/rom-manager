@@ -1,7 +1,7 @@
+import { buttonVariants } from "@/components/atoms/button";
+import { Card, CardContent } from "@/components/atoms/card";
 import { GenericCarousel } from "@/components/molecules/generic-carousel";
 import { StaticGameCard } from "@/components/molecules/static-game-card";
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, withCache } from "@/lib/cache/cache.server";
@@ -35,13 +35,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       getFreshValue: async () => await getGenreInfo(Number(genreId), user.id),
     });
 
-    return json(ifNoneMatch === eTag ? null : data, {
-      status: ifNoneMatch === eTag ? 304 : 200,
-      headers,
-    });
-  } catch (error) {
+    if (ifNoneMatch === eTag) {
+      // json() does not support 304 responses
+      throw new Response(null, {
+        status: 304,
+        headers,
+      });
+    }
+
     return json(
-      { error: `${error}` },
+      { ...data, eTag },
+      {
+        status: 200,
+        headers,
+      }
+    );
+  } catch (throwable) {
+    if (throwable instanceof Response && throwable.status === 304) {
+      return throwable as unknown as ReturnType<Awaited<typeof getGenreInfo>>; // this is the response to the HEAD request in the loader
+    }
+    return json(
+      { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );
   }
@@ -68,7 +82,6 @@ export async function clientLoader({
 
 export default function GenrePage() {
   let data = useLoaderData<typeof loader>();
-  if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
 
   let {

@@ -1,11 +1,11 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/atoms/button";
 import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { formatDateTime, isActiveBorrow } from "@/lib/utils";
 import { System, User } from "@prisma/client";
 import { Form } from "@remix-run/react";
 import { Lock } from "lucide-react";
-import { Input } from "../ui/input";
+import { Input } from "../atoms/input";
 
 interface BorrowStatusProps {
   borrowVoucher: any | null;

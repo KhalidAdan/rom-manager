@@ -3,15 +3,15 @@ import { Game, System } from "@prisma/client";
 import { Link } from "@remix-run/react";
 import { ChevronRight, Star } from "lucide-react";
 import { useState } from "react";
-import { Button, buttonVariants } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
+import { Button, buttonVariants } from "../atoms/button";
+import { Card, CardContent } from "../atoms/card";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "../ui/carousel";
+} from "../atoms/carousel";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog";
+} from "../atoms/dialog";
 
 interface DGame extends Game {
   system: System;

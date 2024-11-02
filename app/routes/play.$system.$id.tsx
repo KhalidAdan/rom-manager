@@ -7,6 +7,7 @@ import { UserRoles } from "@/lib/auth/providers.server";
 import { DATA_DIR } from "@/lib/const";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
+import { RefusalReason } from "@/lib/refusal-reasons";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
 import {
@@ -64,6 +65,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       borrowVoucher: {
         select: {
           id: true,
+          createdAt: true,
+          returnedAt: true,
           user: {
             select: {
               id: true,
@@ -77,8 +80,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!game) throw new Error("Game or system not found");
   if (game.file == null) throw new Error("Game file not found");
-  if (game.borrowVoucher && game.borrowVoucher.user.id !== user.id)
-    throw redirect(`/details/${game.system.title}/${game.id}`);
+
+  if (game.borrowVoucher?.returnedAt !== null) {
+    throw redirect(
+      `/details/${game.system.title}/${game.id}?reason=${RefusalReason.BORROW_GAME_FIRST}`
+    );
+  }
+  if (game.borrowVoucher) {
+    if (game.borrowVoucher.user.id !== user.id) {
+      throw redirect(
+        `/details/${game.system.title}/${game.id}?reason=${RefusalReason.GAME_BORROWED_ALREADY}`
+      );
+    }
+  }
 
   let fileData = game.file.toString("base64");
 
