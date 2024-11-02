@@ -3,17 +3,13 @@ import localforage from "localforage";
 import { GameDetails, GameLibrary } from "../game-library";
 import { GenreInfo } from "../genre-library";
 
-interface WithClientCacheOptions<
-  T,
-  S extends StoreKey,
-  P extends Params<string>
-> {
+interface WithClientCacheOptions<T, S extends StoreKey> {
   store: S;
-  cacheKey: string | ((params: P) => string);
+  cacheKey: string | ((params: Params<string>) => string);
   ttl: number;
-  serverLoader: () => Promise<T>;
+  serverLoader: () => Promise<any>;
   request: Request;
-  params: P;
+  params: Params<string>;
 }
 
 export interface CachedData<T> {
@@ -31,12 +27,12 @@ const STORE_CONFIG = {
   genreInfo: {
     name: "genreInfo",
     type: "genres-cache",
-    description: "Cached genre info data",
+    description: "Cached genre information",
   },
   detailedInfo: {
     name: "detailedInfo",
     type: "details-cache",
-    description: "Cached details info data",
+    description: "Cached detailed game information",
   },
 } as const;
 
@@ -118,62 +114,36 @@ function createStore<T>(storeName: StoreKey): CacheStore<T> {
 export const getCacheManager = () => cacheManager;
 
 /**
- * Client-side cache implementation for Remix loaders that supports TTL and ETag validation.
+ * Client-side cache implementation for Remix loaders
  *
- * This cache works in conjunction with server-side caching to provide a two-level cache strategy:
- * 1. Local browser storage using IndexedDB
- * 2. Server-side validation using ETags
+ * Strategy:
+ * 1. Return cached data if within TTL
+ * 2. On cache expiry, validate ETag with HEAD request
+ * 3. If ETag matches, update timestamp and return cached data
+ * 4. If ETag differs, fetch fresh data from server
  *
- * The cache will:
- * - Return cached data if within TTL
- * - Validate fresh-but-unchanged data using ETags
- * - Automatically fetch fresh data when cache expires
- * - Fallback to server loader on any cache errors
- *
- * @param options Configuration options for the cache
- * @param options.store Which store to use (gameLibrary, genreInfo, detailedInfo)
- * @param options.cacheKey String or function to generate cache key
- * @param options.ttl Time-to-live in milliseconds
- * @param options.serverLoader Remix loader function to fetch fresh data
- * @param options.request Current request (needed for ETag validation)
- * @param options.params URL params (used for cache key generation)
- *
- * @returns Promise resolving to either cached or fresh data
- *
- * @example
- * export async function clientLoader({ request, params, serverLoader }: ClientLoaderFunctionArgs) {
- *   return withClientCache({
- *     store: 'gameLibrary',
- *     cacheKey: (params) => `games:${params.id}`,
- *     ttl: 5 * 60 * 1000, // 5 minutes
- *     serverLoader,
- *     request,
- *     params,
- *   });
- * }
+ * Note: Client TTL should is roughly 25% of server TTL
+ * Note: The store is the specific indexedDB database, cacheKey is the KV key
  */
-export async function withClientCache<
-  T,
-  S extends StoreKey,
-  P extends Params<string>
->({
+export async function withClientCache<T, S extends StoreKey>({
   store,
   cacheKey,
   ttl,
   serverLoader,
   request,
   params,
-}: WithClientCacheOptions<T, S, P>) {
+}: WithClientCacheOptions<T, S>) {
   try {
     let key = typeof cacheKey === "function" ? cacheKey(params) : cacheKey;
-
     let cached = await cacheManager[store].get(key);
 
     if (cached) {
       let age = Date.now() - cached.timestamp;
       let isExpired = age >= ttl;
 
-      if (!isExpired && cached.eTag) {
+      if (!isExpired) return cached.data;
+
+      if (cached.eTag) {
         let versionCheck = await fetch(request.url, {
           method: "HEAD",
           headers: {
@@ -182,12 +152,17 @@ export async function withClientCache<
         });
 
         if (versionCheck.status === 304) {
+          await cacheManager[store].set(key, {
+            data: { ...cached } as any,
+            timestamp: Date.now(),
+            eTag: cached.eTag,
+          });
           return cached.data;
         }
       }
     }
 
-    let freshData = (await serverLoader()) as any;
+    let freshData = await serverLoader();
 
     await cacheManager[store].set(key, {
       data: { ...freshData },
@@ -196,7 +171,8 @@ export async function withClientCache<
     });
 
     return freshData;
-  } catch {
+  } catch (error) {
+    console.error("Cache error:", error);
     return serverLoader();
   }
 }
