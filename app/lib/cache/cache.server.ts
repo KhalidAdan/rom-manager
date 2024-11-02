@@ -89,7 +89,7 @@ export async function withCache<T>({
       data,
       eTag,
       headers: {
-        "Cache-Control": `max-age=${ttl}, stale-while-revalidate=${swr}`,
+        "Cache-Control": "must-revalidate, no-cache",
         ETag: eTag,
       },
     };
