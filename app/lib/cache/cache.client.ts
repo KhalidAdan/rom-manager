@@ -122,7 +122,7 @@ export const getCacheManager = () => cacheManager;
  * 3. If ETag matches, update timestamp and return cached data
  * 4. If ETag differs, fetch fresh data from server
  *
- * Note: Client TTL should is roughly 25% of server TTL
+ * Note: Client TTL is roughly 25% of server TTL, but configurable
  * Note: The store is the specific indexedDB database, cacheKey is the KV key
  */
 export async function withClientCache<T, S extends StoreKey>({
