@@ -517,7 +517,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export async function clientLoader({
-  request,
   params,
   serverLoader,
 }: ClientLoaderFunctionArgs) {
@@ -530,7 +529,6 @@ export async function clientLoader({
     },
     ttl: CLIENT_CACHE_TTL,
     serverLoader,
-    request,
     params,
   });
 }

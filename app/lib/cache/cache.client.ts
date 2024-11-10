@@ -8,7 +8,6 @@ interface WithClientCacheOptions<T, S extends StoreKey> {
   cacheKey: string | ((params: Params<string>) => string);
   ttl: number;
   serverLoader: () => Promise<any>;
-  request: Request;
   params: Params<string>;
 }
 
@@ -64,12 +63,6 @@ const cacheManager = {
   },
 };
 
-export type StoreData = {
-  gameLibrary: CachedData<GameLibrary>;
-  genreInfo: CachedData<GenreInfo>;
-  detailedInfo: CachedData<GameDetails>;
-};
-
 function createStore<T>(storeName: StoreKey): CacheStore<T> {
   return {
     async get(key: string) {
@@ -118,7 +111,7 @@ export const getCacheManager = () => cacheManager;
  *
  * Strategy:
  * 1. Return cached data if within TTL
- * 2. On cache expiry, validate ETag with HEAD request
+ * 2. On cache expiry, validate ETag
  * 3. If ETag matches, update timestamp and return cached data
  * 4. If ETag differs, fetch fresh data from server
  *
@@ -130,52 +123,37 @@ export async function withClientCache<T, S extends StoreKey>({
   cacheKey,
   ttl,
   serverLoader,
-  request,
   params,
 }: WithClientCacheOptions<T, S>) {
   try {
     let key = typeof cacheKey === "function" ? cacheKey(params) : cacheKey;
     let cached = await cacheManager[store].get(key);
 
-    if (cached) {
-      let age = Date.now() - cached.timestamp;
-      let isExpired = age >= ttl;
-
-      if (!isExpired) return cached.data;
-
-      if (cached.eTag) {
-        try {
-          await fetch(request.url, {
-            method: "HEAD",
-            headers: {
-              "If-None-Match": cached.eTag,
-              "Cache-Control": "no-cache",
-            },
-          });
-        } catch (error) {
-          if (error instanceof Response && error.status === 304) {
-            await cacheManager[store].set(key, {
-              data: { ...cached } as any,
-              timestamp: Date.now(),
-              eTag: cached.eTag,
-            });
-
-            return cached;
-          }
-          throw error;
-        }
-      }
+    if (cached && Date.now() - cached.timestamp < ttl) {
+      return cached.data;
     }
 
-    let freshData = await serverLoader();
+    try {
+      let freshData = await serverLoader();
 
-    await cacheManager[store].set(key, {
-      data: { ...freshData },
-      timestamp: Date.now(),
-      eTag: freshData.eTag,
-    });
+      await cacheManager[store].set(key, {
+        data: freshData,
+        timestamp: Date.now(),
+        eTag: freshData.eTag,
+      });
 
-    return freshData;
+      return freshData;
+    } catch (error) {
+      if (error instanceof Response && error.status === 304 && cached) {
+        await cacheManager[store].set(key, {
+          data: { ...cached } as any,
+          timestamp: Date.now(),
+          eTag: cached.eTag,
+        });
+        return cached;
+      }
+      throw error;
+    }
   } catch (error) {
     console.error("Cache error:", error);
     return serverLoader();

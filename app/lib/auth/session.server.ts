@@ -11,7 +11,7 @@ export let sessionStore = createCookieSessionStorage({
     path: "/",
     httpOnly: true,
     secrets: [process.env.SESSION_SECRET],
-    // secure: process.env.NODE_ENV === "production", //! Not using https on tailscale, and this will never run on the public internet
+    secure: process.env.NODE_ENV === "production",
   },
 });
 

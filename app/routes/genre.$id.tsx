@@ -62,7 +62,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export async function clientLoader({
-  request,
   params,
   serverLoader,
 }: ClientLoaderFunctionArgs) {
@@ -75,7 +74,6 @@ export async function clientLoader({
     },
     ttl: CLIENT_CACHE_TTL,
     serverLoader,
-    request,
     params,
   });
 }

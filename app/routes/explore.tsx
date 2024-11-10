@@ -62,7 +62,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     );
   } catch (throwable) {
     if (throwable instanceof Response && throwable.status === 304) {
-      // this is the response to the HEAD request in the loader
+      // this is the response to the GET request in the loader
       return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
     }
     return json(
@@ -73,7 +73,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function clientLoader({
-  request,
   params,
   serverLoader,
 }: ClientLoaderFunctionArgs) {
@@ -82,7 +81,6 @@ export async function clientLoader({
     cacheKey: EXPLORE_CACHE_KEY,
     ttl: CLIENT_CACHE_TTL,
     serverLoader,
-    request,
     params,
   });
 }
