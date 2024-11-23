@@ -489,11 +489,11 @@ export default function SettingsPage() {
                       <TableRow key={user.id}>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          {new Date(user.created_at).toLocaleString()}
+                          {String(user.created_at).slice(0, 25)}
                         </TableCell>
                         <TableCell>
                           {user.signupVerifiedAt &&
-                            new Date(user.signupVerifiedAt).toLocaleString()}
+                            String(user.signupVerifiedAt).slice(0, 25)}
                         </TableCell>
                         <TableCell>
                           <Form method="POST">
@@ -563,7 +563,9 @@ export default function SettingsPage() {
                       <TableRow key={game.id}>
                         <TableCell>{game.title}</TableCell>
                         <TableCell>{game.borrowVoucher?.user.email}</TableCell>
-                        <TableCell>{game.borrowVoucher?.createdAt}</TableCell>
+                        <TableCell>
+                          {String(game.borrowVoucher?.createdAt).slice(0, 25)}
+                        </TableCell>
                         <TableCell>
                           <Form
                             method="POST"

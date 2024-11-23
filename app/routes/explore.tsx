@@ -20,9 +20,10 @@ import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/utils.server";
-import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
   ClientLoaderFunctionArgs,
+  json,
   Link,
   useFetcher,
   useLoaderData,
@@ -38,7 +39,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let ifNoneMatch = request.headers.get("If-None-Match");
 
   try {
-    let { data, eTag, headers } = await withCache<GameLibrary>({
+    let {
+      data: cachedData,
+      eTag,
+      headers,
+    } = await withCache<GameLibrary>({
       key: EXPLORE_CACHE_KEY,
       cache,
       versionKey: "gameLibrary",
@@ -54,7 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     return json(
-      { ...data, eTag },
+      { ...cachedData, eTag },
       {
         status: 200,
         headers,
@@ -88,7 +93,8 @@ export async function clientLoader({
 export default function Explore() {
   let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
+  if ("error" in data)
+    return <div>Error occurred, {data && (data.error as string)}</div>;
 
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;
