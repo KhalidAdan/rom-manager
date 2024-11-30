@@ -40,15 +40,18 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import {
-  ActionFunctionArgs,
-  json,
-  LoaderFunctionArgs,
-  redirect,
-} from "@remix-run/node";
-import { Form, Link, useFetcher, useLoaderData } from "@remix-run/react";
 import { FileWarning, Info, Loader } from "lucide-react";
 import { useCallback, useState } from "react";
+import {
+  ActionFunctionArgs,
+  data,
+  Form,
+  Link,
+  LoaderFunctionArgs,
+  redirect,
+  useFetcher,
+  useLoaderData,
+} from "react-router";
 import { z } from "zod";
 
 enum Intent {
@@ -162,12 +165,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }),
   ]);
 
-  return { settings, users, gamesLocked };
+  return {
+    settings,
+    users,
+    gamesLocked,
+  };
 }
 
 async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -175,7 +182,7 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
   let { roms, intent } = submission.value;
 
   if (intent !== Intent.UPLOAD_ROMS) {
-    return json(
+    return data(
       submission.reply({ formErrors: ["Received an unknown intent"] }),
       { status: 400 }
     );
@@ -210,13 +217,13 @@ async function scrapeROMFolder(submission: Submission<FolderScanSchema>) {
     return redirect("/explore");
   } catch (error) {
     console.error("Folder scanning transaction failed: ", error);
-    return json(submission.reply(), { status: 500 });
+    return data(submission.reply(), { status: 500 });
   }
 }
 
 async function allowSignup(submission: Submission<AllowSignup>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -234,7 +241,7 @@ async function allowSignup(submission: Submission<AllowSignup>) {
 
 async function disallowSignup(submission: Submission<DisallowSignup>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -254,7 +261,7 @@ async function disallowSignup(submission: Submission<DisallowSignup>) {
 
 async function updateSetting(submission: Submission<UpdateSettingSchema>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -284,7 +291,7 @@ async function updateSetting(submission: Submission<UpdateSettingSchema>) {
     data: updateData,
   });
 
-  return json({ success: true });
+  return data({ success: true });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -328,11 +335,46 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function SettingsPage() {
   let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  let data = useLoaderData<{
+    settings: {
+      id: number;
+      showCategoryRecs: boolean;
+      showDiscovery: boolean;
+      spotlightIncompleteGame: boolean;
+      onboardingComplete: Date | null;
+    };
+    users: {
+      id: number;
+      email: string;
+      password: string;
+      created_at: Date;
+      updated_at: Date | null;
+      signupVerifiedAt: Date | null;
+      roleId: number;
+    }[];
+    gamesLocked: {
+      id: number;
+      borrowVoucher: {
+        id: number;
+        user: {
+          id: number;
+          email: string;
+        };
+        createdAt: Date;
+        expiresAt: Date;
+      } | null;
+      title: string;
+      system: {
+        title: string;
+      };
+    }[];
+  }>();
+
   let {
     settings: { id, showCategoryRecs, showDiscovery, spotlightIncompleteGame },
     users,
     gamesLocked,
-  } = useLoaderData<typeof loader>();
+  } = data;
 
   let [form, fields] = useForm({
     constraint: getZodConstraint(FolderScanSchema),

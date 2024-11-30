@@ -17,15 +17,15 @@ import { queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
-import {
-  ActionFunctionArgs,
-  json,
-  LoaderFunctionArgs,
-  redirect,
-} from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
 import { Loader } from "lucide-react";
 import { useCallback, useState } from "react";
+import {
+  ActionFunctionArgs,
+  data,
+  LoaderFunctionArgs,
+  redirect,
+  useFetcher,
+} from "react-router";
 import { z } from "zod";
 declare module "react" {
   interface InputHTMLAttributes<T> extends HTMLAttributes<T> {
@@ -78,7 +78,7 @@ export async function action({ request }: ActionFunctionArgs) {
   });
 
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -86,7 +86,7 @@ export async function action({ request }: ActionFunctionArgs) {
   let { roms, intent } = submission.value;
 
   if (intent !== Intent.UPLOAD_ROMS) {
-    return json(
+    return data(
       submission.reply({ formErrors: ["Received an unknown intent"] }),
       { status: 400 }
     );
@@ -108,7 +108,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return redirect("/processing-status");
   } catch (error) {
     console.error("Onboarding transaction failed: ", error);
-    return json(submission.reply(), { status: 500 });
+    return data(submission.reply(), { status: 500 });
   }
 }
 

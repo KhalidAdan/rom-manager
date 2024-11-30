@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { processQueuedGames } from "@/lib/jobs";
-import { LoaderFunctionArgs } from "@remix-run/node";
+import { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   void processQueuedGames(150);

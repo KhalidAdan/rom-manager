@@ -12,7 +12,7 @@ import {
 
 import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
-import { FetcherWithComponents } from "@remix-run/react";
+import { FetcherWithComponents } from "react-router";
 import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "../atoms/alert";

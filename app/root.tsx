@@ -1,16 +1,5 @@
-import {
-  type LinksFunction,
-  LoaderFunctionArgs,
-  MetaFunction,
-  json,
-} from "@remix-run/node";
-import {
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "@remix-run/react";
+import { type LinksFunction, LoaderFunctionArgs, MetaFunction, json } from "react-router";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 import interItalic from "/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf";
 import interRegular from "/fonts/Inter/Inter-VariableFont_opsz,wght.ttf";

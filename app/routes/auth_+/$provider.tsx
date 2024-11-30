@@ -6,7 +6,7 @@ import {
   makeSession,
 } from "@/lib/auth/session.server";
 import { prisma } from "@/lib/prisma.server";
-import { ActionFunctionArgs, json, redirect } from "@remix-run/node";
+import { ActionFunctionArgs, data, redirect } from "react-router";
 
 export async function loader() {
   return redirect("/authenticate");
@@ -36,7 +36,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     }
     return redirect("/explore", { headers });
   } catch (error) {
-    return json(
+    return data(
       {
         error: "Invalid credentials",
       },

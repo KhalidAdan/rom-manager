@@ -2,7 +2,7 @@ import { Button, buttonVariants } from "@/components/atoms/button";
 import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { System } from "@prisma/client";
-import { FetcherWithComponents, Form, Link } from "@remix-run/react";
+import { FetcherWithComponents, Form, Link } from "react-router";
 
 interface PlayControlsProps {
   id: number;

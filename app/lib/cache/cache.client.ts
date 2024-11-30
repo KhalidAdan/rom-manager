@@ -1,4 +1,4 @@
-import { Params } from "@remix-run/react";
+import { Params } from "react-router";
 import localforage from "localforage";
 import { GameDetails, GameLibrary } from "../game-library";
 import { GenreInfo } from "../genre-library";

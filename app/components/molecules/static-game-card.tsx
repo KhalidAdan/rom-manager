@@ -1,4 +1,4 @@
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { Badge } from "../atoms/badge";
 import { Card, CardContent } from "../atoms/card";
 

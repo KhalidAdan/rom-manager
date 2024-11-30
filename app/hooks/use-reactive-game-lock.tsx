@@ -1,6 +1,6 @@
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { useEventSource } from "remix-utils/sse/react";
+//import { useEventSource } from "remix-utils/sse/react";
 
 interface GameLockStatus {
   isRevoked: boolean;

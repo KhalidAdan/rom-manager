@@ -72,11 +72,11 @@ export async function getGenreInfo(genreId: number, userId: number) {
           name: genre.name,
           gameCount: genre._count.gameGenres,
         }))
-        .sort((a, b) => (a.gameCount < b.gameCount ? 1 : -1))
+        .sort((a: any, b: any) => (a.gameCount < b.gameCount ? 1 : -1))
     ),
 
     Promise.resolve(
-      gamesInGenre.map((game) => ({
+      gamesInGenre.map((game: any) => ({
         ...game,
         coverArt: bufferToStringIfExists(game.coverArt),
       }))

@@ -2,8 +2,8 @@ import { buttonVariants } from "@/components/atoms/button";
 import { RainbowButton } from "@/components/atoms/rainbow-button";
 import { getUser } from "@/lib/auth/auth.server";
 import { cn } from "@/lib/utils";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { LoaderFunctionArgs } from "react-router";
+import { Link, useLoaderData } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   return getUser(request);

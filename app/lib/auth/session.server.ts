@@ -1,6 +1,6 @@
 // app/services/session.server.ts
 import { User } from "@prisma/client";
-import { createCookieSessionStorage } from "@remix-run/node";
+import { createCookieSessionStorage } from "react-router";
 import { prisma } from "../prisma.server";
 import { getSessionExpirationDate } from "./auth.server";
 

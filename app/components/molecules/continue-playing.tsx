@@ -1,5 +1,5 @@
 import { Game, System } from "@prisma/client";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { PlayCircle } from "lucide-react";
 import { Badge } from "../atoms/badge";
 import { buttonVariants } from "../atoms/button";

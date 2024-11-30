@@ -73,7 +73,7 @@ export async function withCache<T>({
   cache,
   versionKey,
   getFreshValue,
-}: WithCacheOptions<T>) {
+}: WithCacheOptions<T>): Promise<{ data: T; eTag: string; headers: any }> {
   try {
     let data = await cachified({
       key,

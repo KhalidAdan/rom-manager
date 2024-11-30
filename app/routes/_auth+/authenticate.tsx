@@ -1,7 +1,7 @@
 import { Login } from "@/components/organisms/login";
 import { authenticator } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
-import { LoaderFunctionArgs } from "@remix-run/node";
+import { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let settings = await prisma.settings.findFirst({

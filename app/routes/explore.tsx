@@ -20,15 +20,16 @@ import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/utils.server";
-import { LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { SearchIcon } from "lucide-react";
 import {
   ClientLoaderFunctionArgs,
-  json,
+  data as dataFn,
   Link,
+  LoaderFunctionArgs,
+  redirect,
   useFetcher,
   useLoaderData,
-} from "@remix-run/react";
-import { SearchIcon } from "lucide-react";
+} from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let user = await requireUser(request);
@@ -58,8 +59,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
     }
 
-    return json(
-      { ...cachedData, eTag },
+    return dataFn(
+      {
+        ...(cachedData as unknown as Awaited<
+          ReturnType<typeof getGameLibrary>
+        >),
+        eTag,
+      },
       {
         status: 200,
         headers,
@@ -70,7 +76,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       // this is the response to the GET request in the loader
       return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
     }
-    return json(
+    return dataFn(
       { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );
@@ -93,9 +99,7 @@ export async function clientLoader({
 export default function Explore() {
   let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
-  if ("error" in data)
-    return <div>Error occurred, {data && (data.error as string)}</div>;
-
+  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;
 
@@ -177,22 +181,16 @@ export default function Explore() {
           random={lastPlayedGame == undefined}
         />
         <RomManager
-          // @ts-expect-error
           games={games.filter((rom) => rom.system.title === "GBA")}
           systemTitle={"GBA"}
         />
-        {settings.showCategoryRecs && (
-          // @ts-expect-error
-          <GenreCards genres={genres} />
-        )}
+        {settings.showCategoryRecs && <GenreCards genres={genres} />}
         <RomManager
-          // @ts-expect-error
           games={games.filter((rom) => rom.system.title === "SNES")}
           systemTitle={"SNES"}
         />
         {settings.showDiscovery && <DiscoveryQueue games={discoveryQueue} />}
         <RomManager
-          // @ts-expect-error
           games={games.filter((rom) => rom.system.title === "GBC")}
           systemTitle={"GBC"}
         />

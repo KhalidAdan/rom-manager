@@ -7,13 +7,8 @@ import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
 import { getTopGenres, searchGames } from "@prisma/client/sql";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import {
-  Link,
-  useFetcher,
-  useLoaderData,
-  useSearchParams,
-} from "@remix-run/react";
+import { LoaderFunctionArgs } from "react-router";
+import { Link, useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { useCallback, useEffect, useState } from "react";
 
 async function performSearch(query: string) {

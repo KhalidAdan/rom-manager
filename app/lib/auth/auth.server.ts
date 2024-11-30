@@ -5,7 +5,7 @@ import {
   sessionStore,
 } from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
-import { redirect } from "@remix-run/node";
+import { redirect } from "react-router";
 import { Authenticator } from "remix-auth";
 import { prisma } from "../prisma.server";
 import { providers } from "./providers.server";

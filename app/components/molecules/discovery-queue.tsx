@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Game, System } from "@prisma/client";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { ChevronRight, Star } from "lucide-react";
 import { useState } from "react";
 import { Button, buttonVariants } from "../atoms/button";

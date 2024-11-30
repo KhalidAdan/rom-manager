@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { action } from "@/routes/auth_+/$provider";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import { useFetcher } from "@remix-run/react";
+import { useFetcher } from "react-router";
 import { LoaderIcon } from "lucide-react";
 import { z } from "zod";
 import { Input } from "../atoms/input";

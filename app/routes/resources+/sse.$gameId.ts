@@ -1,8 +1,8 @@
 import { requireUser } from "@/lib/auth/auth.server";
 import { prisma } from "@/lib/prisma.server";
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "react-router";
 
-import { eventStream } from "remix-utils/sse/server";
+// import { eventStream } from "remix-utils/sse/server";
 
 const USER_PERMISSIONS_REVOKED_TIMEOUT = 15_000;
 const POLLING_FREQUENCY = 3_000;

@@ -9,14 +9,15 @@ import { prisma } from "@/lib/prisma.server";
 import { RefusalReason } from "@/lib/refusal-reasons";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
+import { useCallback, useRef } from "react";
 import {
   ActionFunctionArgs,
-  json,
+  data,
   LoaderFunctionArgs,
   redirect,
-} from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
-import { useCallback, useRef } from "react";
+  useFetcher,
+  useLoaderData,
+} from "react-router";
 import { z } from "zod";
 
 declare global {
@@ -130,7 +131,7 @@ async function removeBorrowVoucher(
   userId: number
 ) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return data(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }

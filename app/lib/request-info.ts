@@ -1,6 +1,6 @@
 import { loader } from "@/root";
 import { invariant } from "@epic-web/invariant";
-import { useRouteLoaderData } from "@remix-run/react";
+import { useRouteLoaderData } from "react-router";
 
 export function useRequestInfo() {
   let data = useRouteLoaderData<typeof loader>("root");

@@ -6,7 +6,7 @@ import { GenericCarousel } from "./generic-carousel";
 export type RomType = {
   id: Game["id"];
   title: Game["title"];
-  coverArt: string;
+  coverArt: string | undefined;
   system: (typeof SUPPORTED_SYSTEMS_WITH_EXTENSIONS)[number];
 };
 

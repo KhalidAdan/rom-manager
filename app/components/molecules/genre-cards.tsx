@@ -1,14 +1,12 @@
 import { Card, CardContent } from "@/components/atoms/card";
 import { cn } from "@/lib/utils";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { GenericCarousel } from "./generic-carousel";
 
 interface Category {
-  id: string;
+  id: number;
   name: string;
-  gradient: string;
-  coverArt: string;
-  image: string;
+  coverArt: string | undefined;
 }
 
 const gradients = [

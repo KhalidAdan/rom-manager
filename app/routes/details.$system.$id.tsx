@@ -52,13 +52,8 @@ import {
   LoaderFunctionArgs,
   unstable_parseMultipartFormData as parseMultipartFormData,
   redirect,
-} from "@remix-run/node";
-import {
-  ClientLoaderFunctionArgs,
-  Form,
-  useLoaderData,
-  useNavigate,
-} from "@remix-run/react";
+} from "react-router";
+import { ClientLoaderFunctionArgs, Form, useLoaderData, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";

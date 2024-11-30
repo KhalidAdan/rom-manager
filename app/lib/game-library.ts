@@ -77,6 +77,7 @@ export async function getGameLibrary(user: User) {
         system: {
           select: {
             title: true,
+            extension: true,
           },
         },
         gameGenres: {

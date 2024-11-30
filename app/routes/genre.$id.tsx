@@ -9,12 +9,14 @@ import { CLIENT_CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
 import { GenreInfo, getGenreInfo } from "@/lib/genre-library";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/utils.server";
-import { json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import {
   ClientLoaderFunctionArgs,
+  data as dataFn,
   Link,
+  LoaderFunctionArgs,
+  redirect,
   useLoaderData,
-} from "@remix-run/react";
+} from "react-router";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
@@ -36,15 +38,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     });
 
     if (ifNoneMatch === eTag) {
-      // json() does not support 304 responses
+      // data() does not support 304 responses
       throw new Response(null, {
         status: 304,
         headers,
       });
     }
 
-    return json(
-      { ...data, eTag },
+    return dataFn(
+      {
+        ...(data as unknown as Awaited<ReturnType<typeof getGenreInfo>>),
+        eTag,
+      },
       {
         status: 200,
         headers,
@@ -54,7 +59,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     if (throwable instanceof Response && throwable.status === 304) {
       return throwable as unknown as ReturnType<Awaited<typeof getGenreInfo>>; // this is the response to the HEAD request in the loader
     }
-    return json(
+    return dataFn(
       { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );

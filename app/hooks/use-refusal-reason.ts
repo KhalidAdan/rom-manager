@@ -3,7 +3,7 @@ import {
   RefusalMessages,
   RefusalReason,
 } from "@/lib/refusal-reasons";
-import { useSearchParams } from "@remix-run/react";
+import { useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 
 export function useRefusalReason() {

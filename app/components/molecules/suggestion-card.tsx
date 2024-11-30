@@ -1,5 +1,5 @@
 import { Genre } from "@prisma/client";
-import { Link } from "@remix-run/react";
+import { Link } from "react-router";
 import { Card, CardContent } from "../atoms/card";
 
 export function SuggestionCard({
