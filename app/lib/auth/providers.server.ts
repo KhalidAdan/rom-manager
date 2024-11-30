@@ -1,6 +1,5 @@
 import { invariant } from "@epic-web/invariant";
 import argon2 from "argon2";
-import { AuthorizationError } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
 import { z } from "zod";
 import { prisma } from "../prisma.server";
@@ -11,7 +10,7 @@ export let UserRoles = {
   VIEWER: 3,
 };
 
-let formStrategy = new FormStrategy(async ({ form, context }) => {
+let formStrategy = new FormStrategy(async ({ form, request }) => {
   let email = form.get("email");
   let password = form.get("password");
 
@@ -41,7 +40,7 @@ let formStrategy = new FormStrategy(async ({ form, context }) => {
   } else {
     let isValid = await argon2.verify(user.password, password);
     if (!isValid) {
-      throw new AuthorizationError("Invalid credentials");
+      throw new Error("Invalid credentials");
     }
   }
 

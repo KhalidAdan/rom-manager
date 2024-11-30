@@ -174,15 +174,11 @@ export default function Play() {
     }
   }, []);
 
-  // useReactiveGameLock(data.id); // might change this to a websocket, SSE is quite unstable at the moment
-
   useInitializeEmulator({
     emulatorInitialized,
     data,
   });
-
   useNavigationCleanup(cleanupEmulator);
-
   useLoadSaveFiles(emulatorInitialized);
 
   return (
