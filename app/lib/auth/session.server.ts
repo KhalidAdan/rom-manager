@@ -4,6 +4,7 @@ import { createCookieSessionStorage } from "react-router";
 import { prisma } from "../prisma.server";
 import { getSessionExpirationDate } from "./auth.server";
 
+export let SESSION_EXPIRATION_TIME = 60 * 60 * 24 * 14;
 export let sessionStore = createCookieSessionStorage({
   cookie: {
     name: "_session",
@@ -12,7 +13,7 @@ export let sessionStore = createCookieSessionStorage({
     httpOnly: true,
     secrets: [process.env.SESSION_SECRET],
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 14,
+    maxAge: SESSION_EXPIRATION_TIME,
   },
 });
 

@@ -1,7 +1,7 @@
 import { Login } from "@/components/organisms/login";
-import { authenticator } from "@/lib/auth/auth.server";
+import { sessionStore } from "@/lib/auth/session.server";
 import { prisma } from "@/lib/prisma.server";
-import { LoaderFunctionArgs } from "react-router";
+import { LoaderFunctionArgs, redirect } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   let settings = await prisma.settings.findFirst({
@@ -9,12 +9,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       onboardingComplete: true,
     },
   });
-  await authenticator.isAuthenticated(request, {
-    successRedirect:
+  let session = await sessionStore.getSession(request.headers.get("cookie"));
+  let user = session.get("user");
+  if (user)
+    throw redirect(
       settings && settings.onboardingComplete !== null
         ? "/explore"
-        : "/onboarding",
-  });
+        : "/onboarding"
+    );
+
   return null;
 }
 

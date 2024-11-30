@@ -1,5 +1,14 @@
-import { type LinksFunction, LoaderFunctionArgs, MetaFunction, json } from "react-router";
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import {
+  Links,
+  type LinksFunction,
+  LoaderFunctionArgs,
+  Meta,
+  MetaFunction,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  data,
+} from "react-router";
 
 import interItalic from "/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf";
 import interRegular from "/fonts/Inter/Inter-VariableFont_opsz,wght.ttf";
@@ -123,7 +132,7 @@ export let links: LinksFunction = () => [
 ];
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  return json({
+  return data({
     requestInfo: {
       hints: getHints(request),
       userPrefs: {

@@ -1,9 +1,5 @@
 // app/services/auth.server.ts
-import {
-  destroySession,
-  getSession,
-  sessionStore,
-} from "@/lib/auth/session.server";
+import { destroySession, getSession } from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
 import { redirect } from "react-router";
 import { Authenticator } from "remix-auth";
@@ -16,10 +12,7 @@ export let getSessionExpirationDate = () =>
   new Date(Date.now() + SESSION_EXPIRATION_TIME);
 export let sessionKeyPrefix = "sessionId" as const;
 
-export let authenticator = new Authenticator<User>(sessionStore, {
-  sessionKey: sessionKeyPrefix,
-  throwOnError: true,
-});
+export let authenticator = new Authenticator<User>();
 
 for (let provider of Object.values(providers)) {
   authenticator.use(provider);

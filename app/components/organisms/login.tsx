@@ -1,10 +1,10 @@
 import { Button } from "@/components/atoms/button";
 import { cn } from "@/lib/utils";
-import { action } from "@/routes/auth_+/$provider";
+import { action } from "@/routes/auth.$provider";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
-import { useFetcher } from "react-router";
 import { LoaderIcon } from "lucide-react";
+import { useFetcher } from "react-router";
 import { z } from "zod";
 import { Input } from "../atoms/input";
 import { Label } from "../atoms/label";
@@ -77,7 +77,9 @@ export function Login() {
                   )}{" "}
                   Authenticate
                 </Button>
-                {fetcher.data?.error && <p>{fetcher.data.error}</p>}
+                {fetcher.data && (fetcher.data as any).error && (
+                  <p>{(fetcher.data as any).error}</p>
+                )}
               </div>
             </fetcher.Form>
           </div>

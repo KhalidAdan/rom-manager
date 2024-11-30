@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
+// @ts-ignore
 import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
 import { BorrowStatus } from "@/components/molecules/borrow-status";
@@ -45,17 +46,20 @@ import {
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
 import { System, User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
-import {
-  ActionFunctionArgs,
-  unstable_createMemoryUploadHandler as createMemoryUploadHandler,
-  json,
-  LoaderFunctionArgs,
-  unstable_parseMultipartFormData as parseMultipartFormData,
-  redirect,
-} from "react-router";
-import { ClientLoaderFunctionArgs, Form, useLoaderData, useNavigate } from "react-router";
+//@ts-ignore
+import { streamMultipart } from "@web3-storage/multipart-parser";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  ActionFunctionArgs,
+  ClientLoaderFunctionArgs,
+  data as dataFn,
+  Form,
+  LoaderFunctionArgs,
+  redirect,
+  useLoaderData,
+  useNavigate,
+} from "react-router";
 import { z } from "zod";
 
 type RomDetails = {
@@ -132,6 +136,101 @@ type LoaderData = {
   user: Awaited<ReturnType<typeof requireUser>>;
 } & Awaited<ReturnType<typeof getGameDetailsData>>;
 
+export type UploadHandler = (
+  part: UploadHandlerPart
+) => Promise<File | string | null | undefined>;
+export type UploadHandlerPart = {
+  name: string;
+  filename?: string;
+  contentType: string;
+  data: AsyncIterable<Uint8Array>;
+};
+export type MemoryUploadHandlerFilterArgs = {
+  filename?: string;
+  contentType: string;
+  name: string;
+};
+
+export type MemoryUploadHandlerOptions = {
+  /**
+   * The maximum upload size allowed. If the size is exceeded an error will be thrown.
+   * Defaults to 3000000B (3MB).
+   */
+  maxPartSize?: number;
+  /**
+   *
+   * @param filename
+   * @param mimetype
+   * @param encoding
+   */
+  filter?(args: MemoryUploadHandlerFilterArgs): boolean | Promise<boolean>;
+};
+
+export class MaxPartSizeExceededError extends Error {
+  constructor(public field: string, public maxBytes: number) {
+    super(`Field "${field}" exceeded upload size of ${maxBytes} bytes.`);
+  }
+}
+
+export function createMemoryUploadHandler({
+  filter,
+  maxPartSize = 3000000,
+}: MemoryUploadHandlerOptions = {}): UploadHandler {
+  return async ({ filename, contentType, name, data }) => {
+    if (filter && !(await filter({ filename, contentType, name }))) {
+      return undefined;
+    }
+
+    let size = 0;
+    let chunks = [];
+    for await (let chunk of data) {
+      size += chunk.byteLength;
+      if (size > maxPartSize) {
+        throw new MaxPartSizeExceededError(name, maxPartSize);
+      }
+      chunks.push(chunk);
+    }
+
+    if (typeof filename === "string") {
+      return new File(chunks, filename, { type: contentType });
+    }
+
+    return await new Blob(chunks, { type: contentType }).text();
+  };
+}
+export async function parseMultipartFormData(
+  request: Request,
+  uploadHandler: UploadHandler
+): Promise<FormData> {
+  let contentType = request.headers.get("Content-Type") || "";
+  let [type, boundary] = contentType.split(/\s*;\s*boundary=/);
+
+  if (!request.body || !boundary || type !== "multipart/form-data") {
+    throw new TypeError("Could not parse content as FormData.");
+  }
+
+  let formData = new FormData();
+  let parts: AsyncIterable<UploadHandlerPart & { done?: true }> =
+    streamMultipart(request.body, boundary);
+
+  for await (let part of parts) {
+    if (part.done) break;
+
+    if (typeof part.filename === "string") {
+      // only pass basename as the multipart/form-data spec recommends
+      // https://datatracker.ietf.org/doc/html/rfc7578#section-4.2
+      part.filename = part.filename.split(/[/\\]/).pop();
+    }
+
+    let value = await uploadHandler(part);
+    if (typeof value !== "undefined" && value !== null) {
+      formData.append(part.name, value as any);
+    }
+  }
+
+  return formData;
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
@@ -161,8 +260,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       });
     }
 
-    return json(
-      { ...data, user, eTag },
+    return dataFn(
+      {
+        ...(data as unknown as Awaited<ReturnType<typeof getGameDetailsData>>),
+        user,
+        eTag,
+      },
       {
         status: 200,
         headers,
@@ -173,7 +276,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // this is the response to the HEAD request in the loader
       return throwable as unknown as LoaderData;
     }
-    return json(
+    return dataFn(
       { error: `${throwable}` },
       { headers: { "Cache-Control": "no-cache" } }
     );
@@ -182,7 +285,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -211,7 +314,7 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
     });
 
     if (activeBorrows.length >= 3) {
-      return json(
+      return dataFn(
         {
           error:
             "You can only borrow up to 3 games at a time. You've borrowed " +
@@ -232,7 +335,10 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
     });
 
     if (existingVoucher) {
-      return json({ error: "This game is already borrowed" }, { status: 400 });
+      return dataFn(
+        { error: "This game is already borrowed" },
+        { status: 400 }
+      );
     }
 
     await prisma.borrowVoucher.upsert({
@@ -252,15 +358,15 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
       },
     });
 
-    return json({ success: true });
+    return dataFn({ success: true });
   } catch (error) {
-    return json({ error: "Failed to borrow game" }, { status: 500 });
+    return dataFn({ error: "Failed to borrow game" }, { status: 500 });
   }
 }
 
 async function returnGame(submission: Submission<ReturnGame>, userId: number) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -277,7 +383,7 @@ async function returnGame(submission: Submission<ReturnGame>, userId: number) {
     });
 
     if (!voucher) {
-      return json(
+      return dataFn(
         { error: "No active borrow found for this game" },
         { status: 400 }
       );
@@ -291,9 +397,9 @@ async function returnGame(submission: Submission<ReturnGame>, userId: number) {
     updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
-    return json({ success: true });
+    return dataFn({ success: true });
   } catch (error) {
-    return json({ error: "Failed to return game" }, { status: 500 });
+    return dataFn({ error: "Failed to return game" }, { status: 500 });
   }
 }
 
@@ -302,7 +408,7 @@ async function adminRevokeBorrow(
   adminId: number
 ) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -316,7 +422,7 @@ async function adminRevokeBorrow(
     });
 
     if (admin?.roleId !== UserRoles.ADMIN) {
-      return json({ error: "Unauthorized" }, { status: 403 });
+      return dataFn({ error: "Unauthorized" }, { status: 403 });
     }
     await prisma.borrowVoucher.update({
       where: {
@@ -331,15 +437,15 @@ async function adminRevokeBorrow(
     updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
-    return json({ success: true });
+    return dataFn({ success: true });
   } catch (error) {
-    return json({ error: "Failed to revoke borrow" }, { status: 500 });
+    return dataFn({ error: "Failed to revoke borrow" }, { status: 500 });
   }
 }
 
 async function updateMetadata(submission: Submission<UpdateMetadata>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -372,7 +478,7 @@ async function updateLastPlayed(
   userId: number
 ) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
@@ -416,7 +522,7 @@ async function updateLastPlayed(
 
 async function deleteRom(submission: Submission<DeleteROM>) {
   if (submission.status !== "success") {
-    return json(submission.reply(), {
+    return dataFn(submission.reply(), {
       status: submission.status === "error" ? 400 : 200,
     });
   }
