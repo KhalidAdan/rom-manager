@@ -59,6 +59,8 @@
   },
   "devDependencies": {
     "@remix-run/dev": "^2.12.1",
+    "@remix-run/fs-routes": "^2.15.0",
+    "@remix-run/route-config": "^2.15.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/react": "^18.2.20",
