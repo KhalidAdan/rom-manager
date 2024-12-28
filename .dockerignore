@@ -69,3 +69,6 @@ logs
 *.flv
 *.mov
 *.wmv
+
+# RR7
+.react-router/

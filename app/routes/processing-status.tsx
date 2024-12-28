@@ -7,14 +7,56 @@ import {
   CardTitle,
 } from "@/components/atoms/card";
 import { processQueuedGames } from "@/lib/jobs";
-import { LoaderFunctionArgs } from "react-router";
+import { prisma } from "@/lib/prisma.server";
+import {
+  ActionFunctionArgs,
+  Form,
+  redirect,
+  useActionData,
+  useNavigation,
+} from "react-router";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  void processQueuedGames(150);
+export async function loader() {
+  void processQueuedGames();
   return null;
 }
 
+export async function action({ request }: ActionFunctionArgs) {
+  let [pending, completed, failed] = await Promise.all([
+    prisma.metadataJob.count({ where: { status: "PENDING" } }),
+    prisma.metadataJob.count({ where: { status: "COMPLETED" } }),
+    prisma.metadataJob.count({ where: { status: "FAILED" } }),
+  ]);
+
+  console.log(pending, completed, failed, pending + completed + failed);
+
+  if (pending === 0 && (completed > 0 || failed > 0)) {
+    return redirect("/explore");
+  }
+
+  let total = pending + completed + failed;
+  let progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return {
+    pending,
+    completed,
+    failed,
+    total,
+    progress,
+  };
+}
+
 export default function ProcessingStatus() {
+  let navigation = useNavigation();
+  let actionData = useActionData<{
+    pending: number;
+    completed: number;
+    failed: number;
+    total: number;
+    progress: number;
+  }>();
+  let isChecking = navigation.state === "submitting";
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden">
       <div
@@ -29,12 +71,30 @@ export default function ProcessingStatus() {
       <Card className="relative z-20 w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>We're setting you up, pulling all your ROM info</CardTitle>
-          <CardDescription>Contact Admin for any issues</CardDescription>
+          <CardDescription>
+            {actionData && (
+              <div className="mt-4 text-sm">
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-500"
+                    style={{ width: `${actionData.progress}%` }}
+                  />
+                </div>
+                <p className="mt-2">
+                  Processed {actionData.completed} of {actionData.total} ROMs
+                  {actionData.failed > 0 && ` (${actionData.failed} failed)`}
+                </p>
+              </div>
+            )}
+          </CardDescription>
         </CardHeader>
+
         <CardFooter className="flex flex-col items-center space-y-4">
-          <Button className="w-full" size="lg">
-            Check Again
-          </Button>
+          <Form method="post" className="w-full">
+            <Button className="w-full" size="lg" disabled={true}>
+              {isChecking ? "Checking Status..." : "Check Progress"}
+            </Button>
+          </Form>
         </CardFooter>
       </Card>
     </div>

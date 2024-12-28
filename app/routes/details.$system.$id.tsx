@@ -26,6 +26,7 @@ import { UserRoles } from "@/lib/auth/providers.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, updateVersion, withCache } from "@/lib/cache/cache.server";
 import {
+  BORROW_LIMIT,
   CLIENT_CACHE_TTL,
   DETAILS_CACHE_KEY,
   EXPLORE_CACHE_KEY,
@@ -33,6 +34,7 @@ import {
   ROM_MAX_SIZE,
   SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
+import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
@@ -241,7 +243,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   let gameId = Number(params.id);
-  if (!gameId) throw new Error("gameId could not be pulled from URL");
+  if (!gameId || isNaN(gameId)) {
+    throw ErrorFactory.create(ErrorCode.INVALID_INPUT, "Invalid game ID", {
+      params,
+    });
+  }
 
   let ifNoneMatch = request.headers.get("If-None-Match");
   try {
@@ -276,9 +282,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       // this is the response to the HEAD request in the loader
       return throwable as unknown as LoaderData;
     }
+
+    if (ErrorFactory.isApplicationError(throwable)) {
+      return dataFn({ error: `${throwable}` }, { status: throwable.status });
+    }
+
     return dataFn(
-      { error: `${throwable}` },
-      { headers: { "Cache-Control": "no-cache" } }
+      {
+        error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR).toString(),
+      },
+      { status: 500, headers: { "Cache-Control": "no-cache" } }
     );
   }
 }
@@ -313,12 +326,14 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
       },
     });
 
-    if (activeBorrows.length >= 3) {
+    if (activeBorrows.length >= BORROW_LIMIT) {
       return dataFn(
         {
-          error:
+          error: ErrorFactory.create(
+            ErrorCode.BORROW_LIMIT_REACHED,
             "You can only borrow up to 3 games at a time. You've borrowed " +
-            activeBorrows.map((ab) => ab.game.title).join(", "),
+              activeBorrows.map((ab) => ab.game.title).join(", ")
+          ).toString(),
         },
         { status: 400 }
       );
@@ -336,7 +351,7 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
 
     if (existingVoucher) {
       return dataFn(
-        { error: "This game is already borrowed" },
+        { error: ErrorFactory.create(ErrorCode.GAME_BORROWED) },
         { status: 400 }
       );
     }
@@ -360,7 +375,10 @@ async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
 
     return dataFn({ success: true });
   } catch (error) {
-    return dataFn({ error: "Failed to borrow game" }, { status: 500 });
+    return dataFn(
+      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
+      { status: 500 }
+    );
   }
 }
 
@@ -384,7 +402,7 @@ async function returnGame(submission: Submission<ReturnGame>, userId: number) {
 
     if (!voucher) {
       return dataFn(
-        { error: "No active borrow found for this game" },
+        { error: ErrorFactory.create(ErrorCode.GAME_NOT_BORROWED) },
         { status: 400 }
       );
     }
@@ -397,9 +415,12 @@ async function returnGame(submission: Submission<ReturnGame>, userId: number) {
     updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
-    return dataFn({ success: true });
+    return { success: true };
   } catch (error) {
-    return dataFn({ error: "Failed to return game" }, { status: 500 });
+    return dataFn(
+      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
+      { status: 500 }
+    );
   }
 }
 
@@ -422,7 +443,10 @@ async function adminRevokeBorrow(
     });
 
     if (admin?.roleId !== UserRoles.ADMIN) {
-      return dataFn({ error: "Unauthorized" }, { status: 403 });
+      return dataFn(
+        { error: ErrorFactory.create(ErrorCode.UNAUTHORIZED) },
+        { status: 403 }
+      );
     }
     await prisma.borrowVoucher.update({
       where: {
@@ -437,9 +461,12 @@ async function adminRevokeBorrow(
     updateVersion("detailedInfo");
     cache.delete(DETAILS_CACHE_KEY(gameId));
 
-    return dataFn({ success: true });
+    return { success: true };
   } catch (error) {
-    return dataFn({ error: "Failed to revoke borrow" }, { status: 500 });
+    return dataFn(
+      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
+      { status: 500 }
+    );
   }
 }
 
@@ -453,24 +480,31 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
   let { id, title, releaseDate, coverArt, backgroundImage, summary } =
     submission.value;
 
-  await prisma.game.update({
-    where: { id },
-    data: {
-      title,
-      releaseDate: releaseDate
-        ? new Date(releaseDate).getTime() / 1000
-        : undefined,
-      coverArt: coverArt
-        ? Buffer.from(await coverArt.arrayBuffer())
-        : undefined,
-      backgroundImage: backgroundImage
-        ? Buffer.from(await backgroundImage.arrayBuffer())
-        : undefined,
-      summary,
-    },
-  });
+  try {
+    await prisma.game.update({
+      where: { id },
+      data: {
+        title,
+        releaseDate: releaseDate
+          ? new Date(releaseDate).getTime() / 1000
+          : undefined,
+        coverArt: coverArt
+          ? Buffer.from(await coverArt.arrayBuffer())
+          : undefined,
+        backgroundImage: backgroundImage
+          ? Buffer.from(await backgroundImage.arrayBuffer())
+          : undefined,
+        summary,
+      },
+    });
 
-  return null;
+    return { success: true };
+  } catch (error) {
+    return dataFn(
+      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
+      { status: 500 }
+    );
+  }
 }
 
 async function updateLastPlayed(
@@ -485,39 +519,46 @@ async function updateLastPlayed(
 
   let { gameId } = submission.value;
 
-  await prisma.gameStats.upsert({
-    where: {
-      userId_gameId: {
-        userId,
-        gameId,
-      },
-    },
-    create: {
-      lastPlayedAt: new Date(),
-      gameId,
-      userId,
-    },
-    update: {
-      lastPlayedAt: new Date(),
-      gameId,
-      userId,
-    },
-  });
-
-  await prisma.game.update({
-    where: {
-      id: gameId,
-    },
-    data: {
-      borrowVoucher: {
-        connect: {
-          id: userId,
+  try {
+    await prisma.gameStats.upsert({
+      where: {
+        userId_gameId: {
+          userId,
+          gameId,
         },
       },
-    },
-  });
+      create: {
+        lastPlayedAt: new Date(),
+        gameId,
+        userId,
+      },
+      update: {
+        lastPlayedAt: new Date(),
+        gameId,
+        userId,
+      },
+    });
 
-  return null;
+    await prisma.game.update({
+      where: {
+        id: gameId,
+      },
+      data: {
+        borrowVoucher: {
+          connect: {
+            id: userId,
+          },
+        },
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    return dataFn(
+      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
+      { status: 500 }
+    );
+  }
 }
 
 async function deleteRom(submission: Submission<DeleteROM>) {
@@ -528,16 +569,28 @@ async function deleteRom(submission: Submission<DeleteROM>) {
   }
 
   let { id } = submission.value;
-  updateVersion("detailedInfo");
-  updateVersion("gameLibrary");
-  updateVersion("genreInfo");
-  cache.delete(DETAILS_CACHE_KEY(id));
-  await prisma.game.delete({
-    where: {
-      id,
-    },
-  });
-  return null;
+
+  try {
+    await prisma.game.delete({
+      where: {
+        id,
+      },
+    });
+  } catch (error) {
+    return dataFn(
+      {
+        error: ErrorFactory.create(ErrorCode.DATABASE_ERROR, `${error}`),
+      },
+      { status: 500 }
+    );
+  } finally {
+    updateVersion("detailedInfo");
+    updateVersion("gameLibrary");
+    updateVersion("genreInfo");
+    cache.delete(DETAILS_CACHE_KEY(id));
+
+    return { success: true };
+  }
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -610,7 +663,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
 
     default: {
-      throw new Error(
+      throw ErrorFactory.create(
+        ErrorCode.INTERNAL_SERVER_ERROR,
         "Details/$System/$Id action. Unknown intent: '" + intent + "'"
       );
     }

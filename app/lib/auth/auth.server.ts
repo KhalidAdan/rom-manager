@@ -1,4 +1,3 @@
-// app/services/auth.server.ts
 import { destroySession, getSession } from "@/lib/auth/session.server";
 import { User } from "@prisma/client";
 import { redirect } from "react-router";

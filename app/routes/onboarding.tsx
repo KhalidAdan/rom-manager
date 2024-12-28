@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod";
 import { Loader } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActionFunctionArgs,
   data,
@@ -114,6 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Onboarding() {
   let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   let [form, fields] = useForm({
     shouldValidate: "onSubmit",
     onValidate({ formData }) {
@@ -145,16 +146,34 @@ export default function Onboarding() {
   let handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      let formData = new FormData();
-      formData.append("intent", Intent.UPLOAD_ROMS);
-      selectedFiles.forEach((file) => formData.append("roms", file));
-      fetcher.submit(formData, {
-        method: "POST",
-        encType: "multipart/form-data",
-      });
+      if (isProcessing || isSubmitting) return;
+
+      setIsProcessing(true);
+
+      try {
+        let formData = new FormData();
+        formData.append("intent", Intent.UPLOAD_ROMS);
+        selectedFiles.forEach((file) => formData.append("roms", file));
+        fetcher.submit(formData, {
+          method: "POST",
+          encType: "multipart/form-data",
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsProcessing(false);
+      }
     },
     [selectedFiles, fetcher]
   );
+
+  useEffect(() => {
+    if (fetcher.state === "idle") {
+      setIsProcessing(false);
+    }
+  }, [fetcher.state]);
+
+  const isDisabled = isProcessing || isSubmitting;
 
   return (
     <main className="h-full w-full flex flex-col justify-center items-center">
@@ -192,9 +211,9 @@ export default function Onboarding() {
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? (
+              {isDisabled ? (
                 <>
-                  <Loader className="animate-spin mr-2" /> Scraping...
+                  <Loader className="animate-spin mr-2" /> Processing...
                 </>
               ) : (
                 "Select ROM folder"

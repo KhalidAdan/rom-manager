@@ -36,6 +36,7 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     }
     return redirect("/explore", { headers });
   } catch (error) {
+    console.log(error);
     return data(
       {
         error: "Invalid credentials",

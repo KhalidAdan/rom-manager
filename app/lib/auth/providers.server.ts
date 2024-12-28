@@ -10,11 +10,10 @@ export let UserRoles = {
   VIEWER: 3,
 };
 
-let formStrategy = new FormStrategy(async ({ form, request }) => {
+let formStrategy = new FormStrategy(async ({ form }) => {
   let email = form.get("email");
   let password = form.get("password");
 
-  // You can validate the inputs however you want
   invariant(typeof email === "string", "username must be a string");
   invariant(email.length > 0, "username must not be empty");
 
@@ -29,11 +28,13 @@ let formStrategy = new FormStrategy(async ({ form, request }) => {
 
   if (!user) {
     let hashedPassword = await argon2.hash(password);
+
     let settings = await prisma.settings.findFirst();
     user = await prisma.user.create({
       data: {
         email: email,
         password: hashedPassword,
+        // first user is an admin
         roleId: settings === null ? UserRoles.ADMIN : UserRoles.VIEWER,
       },
     });
@@ -43,7 +44,6 @@ let formStrategy = new FormStrategy(async ({ form, request }) => {
       throw new Error("Invalid credentials");
     }
   }
-
   return user;
 });
 

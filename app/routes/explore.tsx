@@ -16,6 +16,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, withCache } from "@/lib/cache/cache.server";
 import { CLIENT_CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
+import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
@@ -25,13 +26,13 @@ import {
   ClientLoaderFunctionArgs,
   data as dataFn,
   Link,
-  LoaderFunctionArgs,
   redirect,
   useFetcher,
   useLoaderData,
 } from "react-router";
+import type { Route } from "./+types/explore";
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   let user = await requireUser(request);
 
   if (!hasPermission(user, { requireVerified: true })) {
@@ -77,7 +78,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
     }
     return dataFn(
-      { error: `${throwable}` },
+      {
+        error: ErrorFactory.create(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          `${throwable}`
+        ),
+      },
       { headers: { "Cache-Control": "no-cache" } }
     );
   }
@@ -96,10 +102,11 @@ export async function clientLoader({
   });
 }
 
-export default function Explore() {
+export default function Component({ loaderData }: Route.ComponentProps) {
   let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
+  if ("error" in data) return <div>Error occurred, {data.error.message}</div>;
+
   let { games, lastPlayedGame, randomGame, settings, discoveryQueue, genres } =
     data;
 

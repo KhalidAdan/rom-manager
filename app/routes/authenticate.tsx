@@ -11,6 +11,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
   let session = await sessionStore.getSession(request.headers.get("cookie"));
   let user = session.get("user");
+
   if (user)
     throw redirect(
       settings && settings.onboardingComplete !== null

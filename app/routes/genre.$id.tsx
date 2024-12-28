@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, withCache } from "@/lib/cache/cache.server";
 import { CLIENT_CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
+import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
 import { GenreInfo, getGenreInfo } from "@/lib/genre-library";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/utils.server";
@@ -22,7 +23,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
 
   let genreId = params.id;
-  if (!genreId) throw new Error("genreId could not be pulled from URL");
+  if (!genreId)
+    throw ErrorFactory.create(
+      ErrorCode.INVALID_INPUT,
+      "genreId could not be pulled from URL",
+      {
+        params,
+      }
+    );
 
   if (!hasPermission(user, { requireVerified: true })) {
     throw redirect("/needs-permission");
@@ -60,7 +68,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return throwable as unknown as ReturnType<Awaited<typeof getGenreInfo>>; // this is the response to the HEAD request in the loader
     }
     return dataFn(
-      { error: `${throwable}` },
+      {
+        error: ErrorFactory.create(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          `${throwable}`
+        ),
+      },
       { headers: { "Cache-Control": "no-cache" } }
     );
   }
@@ -85,7 +98,7 @@ export async function clientLoader({
 
 export default function GenrePage() {
   let data = useLoaderData<typeof loader>();
-  if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
+  if ("error" in data) return <div>Error occurred, {data.error.message}</div>;
 
   let {
     activeGenre,

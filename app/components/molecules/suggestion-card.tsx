@@ -18,8 +18,9 @@ export function SuggestionCard({
           <div className="relative aspect-[2/1]">
             <img
               src={
-                `data:image/jpeg;base64,${image}` ??
-                "https://placehold.co/400x250"
+                image
+                  ? `data:image/jpeg;base64,${image}`
+                  : "https://placehold.co/400x250"
               }
               alt={`An image depicting one of your top games in the ${name} genre`}
               className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300 ease-in-out"

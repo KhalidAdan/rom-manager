@@ -1,7 +1,7 @@
-import { Params } from "react-router";
 import localforage from "localforage";
-import { GameDetails, GameLibrary } from "../game-library";
-import { GenreInfo } from "../genre-library";
+import type { Params } from "react-router";
+import type { GameDetails, GameLibrary } from "../game-library";
+import type { GenreInfo } from "../genre-library";
 
 interface WithClientCacheOptions<T, S extends StoreKey> {
   store: S;

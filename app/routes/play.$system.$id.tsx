@@ -4,6 +4,7 @@ import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
 import { DATA_DIR } from "@/lib/const";
+import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { RefusalReason } from "@/lib/refusal-reasons";
@@ -78,8 +79,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     },
   });
 
-  if (!game) throw new Error("Game or system not found");
-  if (game.file == null) throw new Error("Game file not found");
+  if (!game)
+    throw ErrorFactory.create(ErrorCode.NOT_FOUND, "Game or system not found");
+  if (game.file == null)
+    throw ErrorFactory.create(ErrorCode.NOT_FOUND, "Game file not found");
 
   if (game.borrowVoucher?.returnedAt !== null) {
     throw redirect(
@@ -127,8 +130,7 @@ let RemoveBorrowVoucher = z.object({
 type RemoveBorrowVoucher = z.infer<typeof RemoveBorrowVoucher>;
 
 async function removeBorrowVoucher(
-  submission: Submission<RemoveBorrowVoucher>,
-  userId: number
+  submission: Submission<RemoveBorrowVoucher>
 ) {
   if (submission.status !== "success") {
     return data(submission.reply(), {
@@ -149,14 +151,14 @@ async function removeBorrowVoucher(
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  let user = await requireUser(request);
+  await requireUser(request);
   let formData = await request.formData();
 
   let submission = parseWithZod(formData, {
     schema: RemoveBorrowVoucher,
   });
 
-  await removeBorrowVoucher(submission, user.id);
+  await removeBorrowVoucher(submission);
   return null;
 }
 

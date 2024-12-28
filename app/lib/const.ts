@@ -34,3 +34,6 @@ export const SEVEN_DAYS_EPOCH = Date.now() + 7 * 24 * 60 * 60 * 1000;
 export const EXPLORE_CACHE_KEY = "explore";
 export const GENRE_CACHE_KEY = (genreId: string) => `genre-${genreId}`;
 export const DETAILS_CACHE_KEY = (gameId: number) => `game-${gameId}`;
+
+export const BORROW_LIMIT = 5;
+export const POLLING_INTERVAL = 2000;
