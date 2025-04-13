@@ -30,7 +30,6 @@ export async function action({ request, params, context }: ActionFunctionArgs) {
     });
 
     let isOnboarded = await prisma.settings.findFirst();
-
     if (isOnboarded == null) {
       return redirect("/onboarding", { headers });
     }

@@ -17,6 +17,14 @@ import {
 } from "react-router";
 
 export async function loader() {
+  const jobs = await prisma.metadataJob.findMany({
+    where: { status: "PENDING" },
+  });
+
+  if (jobs.length === 0) {
+    redirect("/explore");
+  }
+
   void processQueuedGames();
   return null;
 }
@@ -28,7 +36,11 @@ export async function action({ request }: ActionFunctionArgs) {
     prisma.metadataJob.count({ where: { status: "FAILED" } }),
   ]);
 
-  console.log(pending, completed, failed, pending + completed + failed);
+  console.log(
+    `Pending: ${pending}, Completed: ${completed}, Failed: ${failed}, Total: ${
+      pending + completed + failed
+    }`
+  );
 
   if (pending === 0 && (completed > 0 || failed > 0)) {
     return redirect("/explore");

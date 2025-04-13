@@ -6,7 +6,8 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, withCache } from "@/lib/cache/cache.server";
 import { CLIENT_CACHE_TTL, GENRE_CACHE_KEY } from "@/lib/const";
-import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
+import { ErrorCode } from "@/lib/errors/codes";
+import { ErrorFactory } from "@/lib/errors/factory";
 import { GenreInfo, getGenreInfo } from "@/lib/genre-library";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/utils.server";
@@ -67,6 +68,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     if (throwable instanceof Response && throwable.status === 304) {
       return throwable as unknown as ReturnType<Awaited<typeof getGenreInfo>>; // this is the response to the HEAD request in the loader
     }
+
     return dataFn(
       {
         error: ErrorFactory.create(

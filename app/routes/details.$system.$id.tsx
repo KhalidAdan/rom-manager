@@ -34,7 +34,9 @@ import {
   ROM_MAX_SIZE,
   SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
-import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
+import { ErrorCode } from "@/lib/errors/codes";
+import { ErrorFactory } from "@/lib/errors/factory";
+import { getErrorDetails } from "@/lib/errors/helpers";
 import { GameDetails, getGameDetailsData } from "@/lib/game-library";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
@@ -46,10 +48,9 @@ import {
   useForm,
 } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import { System, User } from "@prisma/client";
 import { Label } from "@radix-ui/react-label";
-//@ts-ignore
-import { streamMultipart } from "@web3-storage/multipart-parser";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -138,101 +139,6 @@ type LoaderData = {
   user: Awaited<ReturnType<typeof requireUser>>;
 } & Awaited<ReturnType<typeof getGameDetailsData>>;
 
-export type UploadHandler = (
-  part: UploadHandlerPart
-) => Promise<File | string | null | undefined>;
-export type UploadHandlerPart = {
-  name: string;
-  filename?: string;
-  contentType: string;
-  data: AsyncIterable<Uint8Array>;
-};
-export type MemoryUploadHandlerFilterArgs = {
-  filename?: string;
-  contentType: string;
-  name: string;
-};
-
-export type MemoryUploadHandlerOptions = {
-  /**
-   * The maximum upload size allowed. If the size is exceeded an error will be thrown.
-   * Defaults to 3000000B (3MB).
-   */
-  maxPartSize?: number;
-  /**
-   *
-   * @param filename
-   * @param mimetype
-   * @param encoding
-   */
-  filter?(args: MemoryUploadHandlerFilterArgs): boolean | Promise<boolean>;
-};
-
-export class MaxPartSizeExceededError extends Error {
-  constructor(public field: string, public maxBytes: number) {
-    super(`Field "${field}" exceeded upload size of ${maxBytes} bytes.`);
-  }
-}
-
-export function createMemoryUploadHandler({
-  filter,
-  maxPartSize = 3000000,
-}: MemoryUploadHandlerOptions = {}): UploadHandler {
-  return async ({ filename, contentType, name, data }) => {
-    if (filter && !(await filter({ filename, contentType, name }))) {
-      return undefined;
-    }
-
-    let size = 0;
-    let chunks = [];
-    for await (let chunk of data) {
-      size += chunk.byteLength;
-      if (size > maxPartSize) {
-        throw new MaxPartSizeExceededError(name, maxPartSize);
-      }
-      chunks.push(chunk);
-    }
-
-    if (typeof filename === "string") {
-      return new File(chunks, filename, { type: contentType });
-    }
-
-    return await new Blob(chunks, { type: contentType }).text();
-  };
-}
-export async function parseMultipartFormData(
-  request: Request,
-  uploadHandler: UploadHandler
-): Promise<FormData> {
-  let contentType = request.headers.get("Content-Type") || "";
-  let [type, boundary] = contentType.split(/\s*;\s*boundary=/);
-
-  if (!request.body || !boundary || type !== "multipart/form-data") {
-    throw new TypeError("Could not parse content as FormData.");
-  }
-
-  let formData = new FormData();
-  let parts: AsyncIterable<UploadHandlerPart & { done?: true }> =
-    streamMultipart(request.body, boundary);
-
-  for await (let part of parts) {
-    if (part.done) break;
-
-    if (typeof part.filename === "string") {
-      // only pass basename as the multipart/form-data spec recommends
-      // https://datatracker.ietf.org/doc/html/rfc7578#section-4.2
-      part.filename = part.filename.split(/[/\\]/).pop();
-    }
-
-    let value = await uploadHandler(part);
-    if (typeof value !== "undefined" && value !== null) {
-      formData.append(part.name, value as any);
-    }
-  }
-
-  return formData;
-}
-
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let user = await requireUser(request);
   if (!user.signupVerifiedAt && user.roleId !== UserRoles.ADMIN) {
@@ -255,7 +161,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       key: DETAILS_CACHE_KEY(gameId),
       cache,
       versionKey: "detailedInfo",
-      getFreshValue: async () => await getGameDetailsData(gameId),
+      getFreshValue: async () => {
+        const data = await getGameDetailsData(gameId);
+        if (
+          data.borrowVoucher &&
+          data.borrowVoucher.expiresAt.getTime() < Date.now()
+        ) {
+          await prisma.borrowVoucher.update({
+            where: {
+              id: data.borrowVoucher.id,
+            },
+            data: {
+              returnedAt: data.borrowVoucher.expiresAt,
+            },
+          });
+        }
+        return data;
+      },
     });
 
     if (ifNoneMatch === eTag) {
@@ -279,9 +201,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     );
   } catch (throwable) {
     if (throwable instanceof Response && throwable.status === 304) {
-      // this is the response to the HEAD request in the loader
       return throwable as unknown as LoaderData;
     }
+
+    const { code, message, status, severity } = getErrorDetails(throwable);
 
     if (ErrorFactory.isApplicationError(throwable)) {
       return dataFn({ error: `${throwable}` }, { status: throwable.status });
@@ -289,9 +212,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     return dataFn(
       {
-        error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR).toString(),
+        error: ErrorFactory.create(
+          code as ErrorCode,
+          message,
+          { timestamp: new Date().toISOString() },
+          { severity }
+        ).toString(),
       },
-      { status: 500, headers: { "Cache-Control": "no-cache" } }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-cache",
+          "X-Error-Code": code,
+          "X-Error-Severity": severity,
+        },
+      }
     );
   }
 }
@@ -481,7 +416,7 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
     submission.value;
 
   try {
-    await prisma.game.update({
+    const game = await prisma.game.update({
       where: { id },
       data: {
         title,
@@ -496,9 +431,20 @@ async function updateMetadata(submission: Submission<UpdateMetadata>) {
           : undefined,
         summary,
       },
+      select: {
+        id: true,
+        system: {
+          select: {
+            title: true,
+          },
+        },
+      },
     });
 
-    return { success: true };
+    updateVersion("detailedInfo");
+    cache.delete(DETAILS_CACHE_KEY(id));
+
+    return redirect(`/details/${game.system.title}/${id}`);
   } catch (error) {
     return dataFn(
       { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
@@ -601,10 +547,25 @@ export async function action({ request, params }: ActionFunctionArgs) {
   let gameId = Number(params.id);
 
   if (contentType && contentType.includes("multipart/form-data")) {
-    formData = await parseMultipartFormData(
-      request,
-      createMemoryUploadHandler({ maxPartSize: MAX_UPLOAD_SIZE })
-    );
+    const uploadHandler = async (fileUpload: FileUpload) => {
+      if (
+        fileUpload.fieldName === "coverArt" ||
+        fileUpload.fieldName === "backgroundImage"
+      ) {
+        const buffer = await fileUpload.arrayBuffer();
+        if (buffer.byteLength > MAX_UPLOAD_SIZE) {
+          throw new Error(
+            `${fileUpload.fieldName} exceeds maximum size of ${MAX_UPLOAD_SIZE} bytes`
+          );
+        }
+
+        return new File([buffer], fileUpload.name, {
+          type: fileUpload.type,
+        });
+      }
+    };
+
+    formData = await parseFormData(request, uploadHandler);
   } else {
     formData = await request.formData();
   }
@@ -850,6 +811,7 @@ export default function RomDetails() {
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor={fields.coverArt.id}>Cover Art</Label>
+
                         <Input
                           type="file"
                           name={fields.coverArt.name}
@@ -860,6 +822,7 @@ export default function RomDetails() {
                         <Label htmlFor={fields.backgroundImage.id}>
                           Background Image
                         </Label>
+
                         <Input
                           type="file"
                           name={fields.backgroundImage.name}

@@ -2,6 +2,7 @@ import { fetchGameMetadata, getIGDBAccessToken } from "@/lib/igdb.server";
 import { prisma } from "./prisma.server";
 
 import { z } from "zod";
+import { withRetry } from "./errors/helpers";
 
 interface GameJobData {
   title: string;
@@ -52,6 +53,68 @@ export async function queueGamesForProcessing(games: GameJobData[]) {
   console.log(`Finished queueing process for ${games.length} games`);
 }
 
+async function processGameMetadata(job: GameJobData) {
+  return await withRetry(
+    async () => {
+      const metadata = await fetchGameMetadata(
+        process.env.TWITCH_CLIENT_ID!,
+        await getIGDBAccessToken(),
+        job.title,
+        job.system.title
+      );
+
+      await prisma.game.create({
+        data: {
+          title: metadata.title ?? job.title,
+          fileName: job.fileName,
+          file: Buffer.from(job.file),
+          releaseDate: metadata.releaseDate ?? 0,
+          rating: metadata.total_rating,
+          summary: metadata.summary ?? "",
+          coverArt: metadata.coverArt,
+          backgroundImage: metadata.backgroundImage,
+          system: {
+            connectOrCreate: {
+              where: { title: job.system.title },
+              create: {
+                title: job.system.title,
+                extension: job.system.extension,
+              },
+            },
+          },
+          gameGenres: metadata.genres
+            ? {
+                create: metadata.genres.map((genre) => ({
+                  genre: {
+                    connectOrCreate: {
+                      where: { name: genre.name },
+                      create: { name: genre.name },
+                    },
+                  },
+                })),
+              }
+            : undefined,
+        },
+      });
+
+      return metadata;
+    },
+    {
+      maxAttempts: 3,
+      backoffMs: 1000,
+      onRetry: (attempt, error) => {
+        console.log(`Retry attempt ${attempt} for ${job.title}:`, error.message);
+      },
+      shouldRetry: (error) => {
+        const message = error.message.toLowerCase();
+        return message.includes('rate limit') || 
+               message.includes('network') ||
+               message.includes('timeout');
+      }
+    }
+  );
+}
+
 export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
   let processedCount = 0;
   let accessToken = await getIGDBAccessToken();
@@ -64,6 +127,7 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
         select: {
           id: true,
           title: true,
+          file: true,
           fileName: true,
           systemTitle: true,
           systemExtension: true,
@@ -79,55 +143,19 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
         try {
           console.log(`Processing: ${job.title}`);
 
-          let game = await fetchGameMetadata(
-            process.env.TWITCH_CLIENT_ID!,
-            accessToken,
-            job.title,
-            job.systemTitle
-          );
-
-          // Fetch the file data separately
-          let jobWithFile = await prisma.metadataJob.findUnique({
+          await prisma.metadataJob.update({
             where: { id: job.id },
-            select: { file: true },
+            data: { status: "PROCESSING" }
           });
-
-          if (!jobWithFile) {
-            throw new Error(`Job ${job.id} not found when fetching file data`);
-          }
-
-          await prisma.game.create({
-            data: {
-              title: game.title ?? job.title,
-              fileName: job.fileName,
-              file: jobWithFile.file,
-              releaseDate: game.releaseDate ?? 0,
-              rating: game.total_rating,
-              summary: game.summary ?? "",
-              coverArt: game.coverArt,
-              backgroundImage: game.backgroundImage,
-              system: {
-                connectOrCreate: {
-                  where: { title: job.systemTitle },
-                  create: {
-                    title: job.systemTitle,
-                    extension: job.systemExtension,
-                  },
-                },
-              },
-              gameGenres: game.genres
-                ? {
-                    create: game.genres.map((genre) => ({
-                      genre: {
-                        connectOrCreate: {
-                          where: { name: genre.name },
-                          create: { name: genre.name },
-                        },
-                      },
-                    })),
-                  }
-                : undefined,
-            },
+          
+          await processGameMetadata({
+            title: job.title,
+            fileName: job.fileName,
+            file: job.file,
+            system: {
+              title: job.systemTitle,
+              extension: job.systemExtension
+            }
           });
 
           await prisma.metadataJob.update({
@@ -143,8 +171,12 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
           console.error(`Error processing ${job.title}:`, error);
           await prisma.metadataJob.update({
             where: { id: job.id },
-            data: { status: "FAILED", error: String(error) },
+            data: { 
+              status: "FAILED", 
+              error: error instanceof Error ? error.message : String(error)
+            },
           });
+
         }
 
         await new Promise((resolve) => setTimeout(resolve, 250)); // IGDB rate limit
@@ -169,10 +201,3 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
 
   return processedCount;
 }
-
-// Example usage in your main application
-// await queueGamesForProcessing(gamesArray);
-// res.redirect('/processing-status');
-
-// In a separate process or scheduled task
-// await processQueuedGames();

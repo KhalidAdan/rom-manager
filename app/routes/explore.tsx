@@ -16,7 +16,9 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, withCache } from "@/lib/cache/cache.server";
 import { CLIENT_CACHE_TTL, EXPLORE_CACHE_KEY } from "@/lib/const";
-import { ErrorCode, ErrorFactory } from "@/lib/errors/factory";
+import { ErrorCode } from "@/lib/errors/codes";
+import { ErrorFactory } from "@/lib/errors/factory";
+import { getErrorDetails } from "@/lib/errors/helpers";
 import { GameLibrary, getGameLibrary } from "@/lib/game-library";
 import { DetailsIntent } from "@/lib/intents";
 import { cn } from "@/lib/utils";
@@ -74,17 +76,34 @@ export async function loader({ request }: Route.LoaderArgs) {
     );
   } catch (throwable) {
     if (throwable instanceof Response && throwable.status === 304) {
-      // this is the response to the GET request in the loader
       return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
     }
+
+    const { code, message, status, severity } = getErrorDetails(throwable);
+
+    console.error("Game library loader error:", {
+      code,
+      message,
+      status,
+      severity,
+    });
+
     return dataFn(
       {
         error: ErrorFactory.create(
-          ErrorCode.INTERNAL_SERVER_ERROR,
-          `${throwable}`
+          code as ErrorCode,
+          message,
+          { timestamp: new Date().toISOString() },
+          { severity }
         ),
       },
-      { headers: { "Cache-Control": "no-cache" } }
+      {
+        headers: {
+          "Cache-Control": "no-cache",
+          "X-Error-Code": code,
+          "X-Error-Severity": severity,
+        },
+      }
     );
   }
 }
