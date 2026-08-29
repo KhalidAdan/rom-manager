@@ -39,7 +39,7 @@ describe("cache.server.ts", () => {
         data: mockData,
         eTag: expect.any(String),
         headers: {
-          "Cache-Control": "must-revalidate, no-cache",
+          "Cache-Control": "private, max-age=300, must-revalidate",
           Vary: "Authorization",
           ETag: expect.any(String),
         },

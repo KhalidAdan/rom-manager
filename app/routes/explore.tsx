@@ -26,7 +26,7 @@ import { hasPermission } from "@/lib/utils.server";
 import { SearchIcon } from "lucide-react";
 import {
   ClientLoaderFunctionArgs,
-  data as dataFn,
+  data,
   Link,
   redirect,
   useFetcher,
@@ -55,14 +55,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     });
 
     if (ifNoneMatch === eTag) {
-      // json() does not support 304 responses
+      // data() does not support 304 responses
       throw new Response(null, {
         status: 304,
         headers,
       });
     }
 
-    return dataFn(
+    return data(
       {
         ...(cachedData as unknown as Awaited<
           ReturnType<typeof getGameLibrary>
@@ -88,7 +88,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       severity,
     });
 
-    return dataFn(
+    return data(
       {
         error: ErrorFactory.create(
           code as ErrorCode,

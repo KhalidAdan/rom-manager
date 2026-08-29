@@ -128,8 +128,9 @@ export async function withClientCache<T, S extends StoreKey>({
   try {
     let key = typeof cacheKey === "function" ? cacheKey(params) : cacheKey;
     let cached = await cacheManager[store].get(key);
+    const now = Date.now();
 
-    if (cached && Date.now() - cached.timestamp < ttl) {
+    if (cached && now - cached.timestamp < ttl) {
       return cached.data;
     }
 
@@ -138,7 +139,7 @@ export async function withClientCache<T, S extends StoreKey>({
 
       await cacheManager[store].set(key, {
         data: freshData,
-        timestamp: Date.now(),
+        timestamp: now,
         eTag: freshData.eTag,
       });
 
@@ -147,7 +148,7 @@ export async function withClientCache<T, S extends StoreKey>({
       if (error instanceof Response && error.status === 304 && cached) {
         await cacheManager[store].set(key, {
           data: { ...cached } as any,
-          timestamp: Date.now(),
+          timestamp: now,
           eTag: cached.eTag,
         });
         return cached;

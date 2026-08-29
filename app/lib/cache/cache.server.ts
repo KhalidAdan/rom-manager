@@ -89,7 +89,7 @@ export async function withCache<T>({
       data,
       eTag,
       headers: {
-        "Cache-Control": "must-revalidate, no-cache",
+        "Cache-Control": "private, max-age=300, must-revalidate",
         Vary: "Authorization",
         ETag: eTag,
       },
