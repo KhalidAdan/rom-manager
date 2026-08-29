@@ -16,7 +16,7 @@ import { processUploadedDirectory } from "@/lib/fs.server";
 import { queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+import { parseWithZod } from "@conform-to/zod/v4";
 import { Loader } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {

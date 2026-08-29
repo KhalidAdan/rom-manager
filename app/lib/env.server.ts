@@ -13,7 +13,7 @@ try {
   envVariables.parse(process.env);
 } catch (e) {
   if (e instanceof ZodError) {
-    console.error("Missing or invalid environment variables:", e.errors);
+    console.error("Missing or invalid environment variables:", e.issues);
   } else {
     console.error("An unknown error occurred while parsing env variables:", e);
   }

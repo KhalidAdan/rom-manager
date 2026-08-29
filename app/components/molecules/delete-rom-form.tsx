@@ -1,6 +1,6 @@
 import { getCacheManager } from "@/lib/cache/cache.client";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
-import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { Form } from "react-router";
 import { z } from "zod";
 import { Button } from "../atoms/button";

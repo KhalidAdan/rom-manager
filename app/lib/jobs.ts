@@ -7,7 +7,7 @@ import { withRetry } from "./errors/helpers";
 interface GameJobData {
   title: string;
   fileName: string;
-  file: ArrayBuffer;
+  file: ArrayBuffer | Uint8Array;
   system: {
     title: string;
     extension: string;
@@ -67,7 +67,10 @@ async function processGameMetadata(job: GameJobData) {
         data: {
           title: metadata.title ?? job.title,
           fileName: job.fileName,
-          file: Buffer.from(job.file),
+          file:
+            job.file instanceof Uint8Array
+              ? Buffer.from(job.file)
+              : Buffer.from(job.file),
           releaseDate: metadata.releaseDate ?? 0,
           rating: metadata.total_rating,
           summary: metadata.summary ?? "",

@@ -2,7 +2,7 @@ import { Button } from "@/components/atoms/button";
 import { cn } from "@/lib/utils";
 import { action } from "@/routes/auth.$provider";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
-import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { LoaderIcon } from "lucide-react";
 import { useFetcher } from "react-router";
 import { z } from "zod";

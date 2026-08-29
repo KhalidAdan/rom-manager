@@ -39,7 +39,7 @@ import {
   Submission,
   useForm,
 } from "@conform-to/react";
-import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { FileWarning, Info, Loader } from "lucide-react";
 import { useCallback, useState } from "react";
 import {

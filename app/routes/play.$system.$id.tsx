@@ -10,7 +10,7 @@ import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { RefusalReason } from "@/lib/refusal-reasons";
 import { Submission } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+import { parseWithZod } from "@conform-to/zod/v4";
 import { useCallback, useRef } from "react";
 import {
   ActionFunctionArgs,
