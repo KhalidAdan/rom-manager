@@ -3,12 +3,14 @@ import { useNavigationCleanup } from "@/hooks/use-navigation-cleanup";
 import { useLoadSaveFiles } from "@/hooks/use-save-files";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
-import { DATA_DIR } from "@/lib/const";
+import { cache, updateVersion } from "@/lib/cache/cache.server";
+import { DATA_DIR, DETAILS_CACHE_KEY } from "@/lib/const";
 import { ErrorCode } from "@/lib/errors/codes";
 import { ErrorFactory } from "@/lib/errors/factory";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { RefusalReason } from "@/lib/refusal-reasons";
+import { returnGame } from "@/queries/details/return-game";
 import { Submission } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
 import { useCallback, useRef } from "react";
@@ -131,7 +133,8 @@ let RemoveBorrowVoucher = z.object({
 type RemoveBorrowVoucher = z.infer<typeof RemoveBorrowVoucher>;
 
 async function removeBorrowVoucher(
-  submission: Submission<RemoveBorrowVoucher>
+  submission: Submission<RemoveBorrowVoucher>,
+  userId: number
 ) {
   if (submission.status !== "success") {
     return data(submission.reply(), {
@@ -141,25 +144,33 @@ async function removeBorrowVoucher(
 
   let { gameId } = submission.value;
 
-  await prisma.borrowVoucher.update({
-    where: {
-      gameId,
-    },
-    data: {
-      returnedAt: new Date(),
-    },
-  });
+  try {
+    await returnGame(gameId, userId);
+  } catch (error) {
+    // The emulator-exit cleanup can fire after the voucher was already
+    // returned (or for a game the user never borrowed) — not an error here.
+    if (
+      !ErrorFactory.isApplicationError(error) ||
+      error.code !== ErrorCode.GAME_NOT_BORROWED
+    ) {
+      throw error;
+    }
+    return;
+  }
+
+  updateVersion("detailedInfo");
+  cache.delete(DETAILS_CACHE_KEY(gameId));
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  await requireUser(request);
+  let user = await requireUser(request);
   let formData = await request.formData();
 
   let submission = parseWithZod(formData, {
     schema: RemoveBorrowVoucher,
   });
 
-  await removeBorrowVoucher(submission);
+  await removeBorrowVoucher(submission, user.id);
   return null;
 }
 

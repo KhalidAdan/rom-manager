@@ -7,7 +7,18 @@ import { withRetry } from "./errors/helpers";
 interface GameJobData {
   title: string;
   fileName: string;
-  file: ArrayBuffer | Uint8Array;
+  file: ArrayBuffer;
+  system: {
+    title: string;
+    extension: string;
+  };
+}
+
+// Jobs read back from the metadata_job table carry Prisma Bytes (Uint8Array).
+interface StoredGameJob {
+  title: string;
+  fileName: string;
+  file: Uint8Array<ArrayBuffer>;
   system: {
     title: string;
     extension: string;
@@ -53,12 +64,12 @@ export async function queueGamesForProcessing(games: GameJobData[]) {
   console.log(`Finished queueing process for ${games.length} games`);
 }
 
-async function processGameMetadata(job: GameJobData) {
+async function processGameMetadata(job: StoredGameJob, accessToken: string) {
   return await withRetry(
     async () => {
       let metadata = await fetchGameMetadata(
         process.env.TWITCH_CLIENT_ID!,
-        await getIGDBAccessToken(),
+        accessToken,
         job.title,
         job.system.title
       );
@@ -67,10 +78,7 @@ async function processGameMetadata(job: GameJobData) {
         data: {
           title: metadata.title ?? job.title,
           fileName: job.fileName,
-          file:
-            job.file instanceof Uint8Array
-              ? Buffer.from(job.file)
-              : Buffer.from(job.file),
+          file: job.file,
           releaseDate: metadata.releaseDate ?? 0,
           rating: metadata.total_rating,
           summary: metadata.summary ?? "",
@@ -125,6 +133,9 @@ async function processGameMetadata(job: GameJobData) {
 
 export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
   let processedCount = 0;
+  // Fetch the token once up front: fail fast (leaving every job PENDING and
+  // re-runnable) when credentials are bad, instead of marking each job FAILED.
+  let accessToken = await getIGDBAccessToken();
 
   while (processedCount < maxJobs) {
     try {
@@ -155,15 +166,18 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
             data: { status: "PROCESSING" },
           });
 
-          await processGameMetadata({
-            title: job.title,
-            fileName: job.fileName,
-            file: job.file,
-            system: {
-              title: job.systemTitle,
-              extension: job.systemExtension,
+          await processGameMetadata(
+            {
+              title: job.title,
+              fileName: job.fileName,
+              file: job.file,
+              system: {
+                title: job.systemTitle,
+                extension: job.systemExtension,
+              },
             },
-          });
+            accessToken
+          );
 
           await prisma.metadataJob.update({
             where: { id: job.id },

@@ -22,7 +22,7 @@ import { useRefusalReason } from "@/hooks/use-refusal-reason";
 import { useToast } from "@/hooks/use-toast";
 import { requireUser } from "@/lib/auth/auth.server";
 import { UserRoles } from "@/lib/auth/providers.server";
-import { withClientCache } from "@/lib/cache/cache.client";
+import { getCacheManager, withClientCache } from "@/lib/cache/cache.client";
 import { cache, updateVersion, withCache } from "@/lib/cache/cache.server";
 import {
   CLIENT_CACHE_TTL,
@@ -59,6 +59,7 @@ import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   ActionFunctionArgs,
+  ClientActionFunctionArgs,
   ClientLoaderFunctionArgs,
   data,
   Form,
@@ -186,9 +187,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   let gameId = Number(params.id);
   if (!gameId || isNaN(gameId)) {
-    throw ErrorFactory.create(ErrorCode.INVALID_INPUT, "Invalid game ID", {
-      params,
-    });
+    return data(
+      {
+        error: ErrorFactory.create(ErrorCode.INVALID_INPUT, "Invalid game ID", {
+          params,
+        }).toString(),
+      },
+      { status: 400 }
+    );
   }
 
   if (contentType && contentType.includes("multipart/form-data")) {
@@ -232,10 +238,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
         let { gameId } = submission.value;
 
+        await borrowGame(gameId, user.id);
+
         updateVersion("detailedInfo");
         cache.delete(DETAILS_CACHE_KEY(gameId));
 
-        await borrowGame(gameId, user.id);
         return data({ success: true });
       }
 
@@ -295,6 +302,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
         let { gameId } = submission.value;
 
         await updateLastPlayed(gameId, user.id);
+
+        // lastPlayedAt feeds the explore page's "continue playing" spotlight
+        updateVersion("gameLibrary");
+        cache.delete(EXPLORE_CACHE_KEY);
+
         return data({ success: true });
       }
 
@@ -312,9 +324,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
         let { id, title, releaseDate, coverArt, backgroundImage, summary } =
           submission.value;
 
-        updateVersion("detailedInfo");
-        cache.delete(DETAILS_CACHE_KEY(id));
-
         let updatedGame = await updateGameMetadata(id, {
           title,
           releaseDate: releaseDate
@@ -328,6 +337,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
             : undefined,
           summary,
         });
+
+        // Invalidate after the write commits so a concurrent loader can't
+        // re-cache pre-update data for the rest of the TTL. Metadata shows on
+        // explore and the per-genre pages too, and genre cache keys can't be
+        // enumerated here — updateVersion only changes ETags, it never evicts
+        // — so this rare admin mutation clears the whole cache.
+        updateVersion("detailedInfo");
+        updateVersion("gameLibrary");
+        updateVersion("genreInfo");
+        cache.clear();
 
         return redirect(
           `/details/${updatedGame.system.title}/${updatedGame.id}`
@@ -350,11 +369,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
         try {
           await deleteGame(id);
         } finally {
+          // Deleted games show on explore and genre pages; genre keys can't
+          // be enumerated here, so clear everything (rare admin mutation).
           updateVersion("detailedInfo");
           updateVersion("gameLibrary");
           updateVersion("genreInfo");
-          cache.delete(DETAILS_CACHE_KEY(id));
-          cache.delete(EXPLORE_CACHE_KEY);
+          cache.clear();
         }
 
         return redirect("/explore");
@@ -381,6 +401,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
       },
       { status: 500 }
     );
+  }
+}
+
+// Single choke point: every mutation posted to this route clears the client
+// caches, so individual forms can't forget to (the pre-fix edit-metadata form
+// did, and served stale data for CLIENT_CACHE_TTL after a save).
+export async function clientAction({
+  serverAction,
+}: ClientActionFunctionArgs) {
+  try {
+    return await serverAction();
+  } finally {
+    await getCacheManager().clearAll();
   }
 }
 

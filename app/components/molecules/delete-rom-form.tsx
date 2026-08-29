@@ -1,4 +1,3 @@
-import { getCacheManager } from "@/lib/cache/cache.client";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { Form } from "react-router";
@@ -30,11 +29,9 @@ export function DeleteROMForm({ id }: { id: number }) {
     <Form
       {...getFormProps(form)}
       method="POST"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         if (!confirm("Are you sure you want to delete this rom?")) {
           e.preventDefault();
-          await getCacheManager().clearAll();
-          return;
         }
       }}
     >

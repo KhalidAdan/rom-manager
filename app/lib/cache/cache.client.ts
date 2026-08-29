@@ -146,12 +146,13 @@ export async function withClientCache<S extends StoreKey>({
       return freshData;
     } catch (error) {
       if (error instanceof Response && error.status === 304 && cached) {
+        // indexing by the generic store key erases the concrete entry type
         await cacheManager[store].set(key, {
-          data: { ...cached } as any,
+          data: cached.data,
           timestamp: now,
           eTag: cached.eTag,
-        });
-        return cached;
+        } as CachedData<never>);
+        return cached.data;
       }
       throw error;
     }

@@ -1,4 +1,4 @@
-import { MAX_UPLOAD_SIZE, ROM_MAX_SIZE } from "@/lib/const";
+import { MAX_UPLOAD_SIZE } from "@/lib/const";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { z } from "zod";
 
@@ -42,13 +42,6 @@ export let UpdateMetadata = z
       .refine(
         (file) => file.size <= MAX_UPLOAD_SIZE,
         "backgroundImage must be no larger than 5MB"
-      )
-      .optional(),
-    file: z
-      .instanceof(File)
-      .refine(
-        (file) => file.size <= ROM_MAX_SIZE,
-        "File must be no larger than 24MB"
       )
       .optional(),
   })

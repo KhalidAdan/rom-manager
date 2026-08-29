@@ -170,17 +170,16 @@ describe("cache.client.ts", () => {
         params: {},
       });
 
-      expect(result.data).toEqual(mockData);
+      // Must return the loader payload itself — the same shape as the
+      // fresh-cache path — never the {data, timestamp, eTag} wrapper.
+      expect(result).toEqual(mockData);
       let setItemCall = vi.mocked(mockStore.setItem).mock.calls[0];
       let [key, savedData] = setItemCall;
 
       // Check the structure piece by piece
       expect(key).toBe("test-key");
-      expect(savedData.data).toEqual({
-        data: mockCached.data, // Should be the same data reference
-        eTag: mockCached.eTag, // Should keep same eTag
-        timestamp: expect.any(Number), // Should be a new timestamp
-      });
+      expect(savedData.data).toEqual(mockCached.data);
+      expect(savedData.eTag).toBe(mockCached.eTag);
 
       // Verify timestamp was actually updated
       expect(
