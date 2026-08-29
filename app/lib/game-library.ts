@@ -87,7 +87,9 @@ export async function getGameLibrary(user: User) {
         },
       },
     }),
-    prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
+    prisma.$queryRawTyped(
+      getRandomGame(settings.spotlightIncompleteGame ? 1 : 0)
+    ),
     prisma.$queryRawTyped(getTopGenres()),
     getLastPlayedGame(user.id, settings.spotlightIncompleteGame),
   ]);
