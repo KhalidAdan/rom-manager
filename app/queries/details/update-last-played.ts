@@ -22,19 +22,5 @@ export async function updateLastPlayed(gameId: number, userId: number) {
     },
   });
 
-  // Update game's borrow status
-  await prisma.game.update({
-    where: {
-      id: gameId,
-    },
-    data: {
-      borrowVoucher: {
-        connect: {
-          id: userId,
-        },
-      },
-    },
-  });
-
   return { success: true };
 }

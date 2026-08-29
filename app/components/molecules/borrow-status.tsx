@@ -1,5 +1,4 @@
 import { Button } from "@/components/atoms/button";
-import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { formatDateTime, isActiveBorrow } from "@/lib/utils";
 import { System, User } from "@/generated/prisma/client";
@@ -59,7 +58,6 @@ export function BorrowStatus({
               action={`/details/${system.title}/${id}`}
               navigate={false}
               className="pt-2"
-              onSubmit={() => getCacheManager().detailedInfo.clear()}
             >
               <Input type="hidden" name="gameId" defaultValue={id} />
               <Input

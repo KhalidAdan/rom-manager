@@ -45,7 +45,6 @@ api/_build
 
 # Prisma (if you're using it)
 prisma/*.db
-prisma/migrations
 
 # Other unnecessary files
 *.md
