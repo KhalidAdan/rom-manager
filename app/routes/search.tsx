@@ -112,8 +112,8 @@ const SearchBackground = () => (
       className="w-screen h-screen object-cover"
     />
     <div className="absolute inset-0 bg-black opacity-75" />
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black min-h-screen -z-10" />
-    <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent min-h-screen -z-10" />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-transparent via-black/80 to-black min-h-screen -z-10" />
+    <div className="absolute inset-0 bg-linear-to-t from-black from-10% via-black/10 to-transparent min-h-screen -z-10" />
   </div>
 );
 

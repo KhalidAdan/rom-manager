@@ -134,8 +134,8 @@ export default function GenrePage() {
         }}
       >
         <div className="absolute inset-0 bg-black opacity-15"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black max-h-full" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black from-10% via-black/10 to-transparent max-h-full" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-transparent via-black/80 to-black max-h-full" />
+        <div className="absolute inset-0 bg-linear-to-t from-black from-10% via-black/10 to-transparent max-h-full" />
       </div>
 
       <div className="relative z-10 p-6">

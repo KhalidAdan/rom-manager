@@ -187,7 +187,7 @@ export default function Play() {
 
   return (
     <main className="bg-muted/40 min-h-screen pt-6">
-      <div className="max-w-4xl aspect-[4/3] mx-auto bg-black rounded-2xl">
+      <div className="max-w-4xl aspect-4/3 mx-auto bg-black rounded-2xl">
         <div id="game" className="h-full w-full bg-background"></div>
       </div>
       <div className="max-w-4xl mx-auto mt-6 space-y-4">

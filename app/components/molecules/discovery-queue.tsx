@@ -53,7 +53,7 @@ export function DiscoveryQueue({ games }: { games: DGame[] }) {
 
   return (
     <div className="w-full space-y-4 mt-12">
-      <Card className="bg-gradient-to-r from-blue-900 to-teal-700 overflow-hidden">
+      <Card className="bg-linear-to-r from-blue-900 to-teal-700 overflow-hidden">
         <CardContent className="p-0 max-w-5xl mx-auto flex items-center justify-between min-h-[250px]">
           <div className="p-6 space-y-2">
             <h2 className="text-4xl font-bold">Explore Your Queue</h2>
@@ -91,7 +91,7 @@ export function DiscoveryQueue({ games }: { games: DGame[] }) {
                           />
                         </div>
                         <div className="col-span-2 px-6 pt-6 flex flex-col justify-between">
-                          <div className="flex-grow">
+                          <div className="grow">
                             <h3 className="text-2xl font-bold mb-2">
                               {game.title}
                             </h3>

@@ -31,8 +31,8 @@ export function ContinuePlaying({
           }
           alt={title}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black from-1% via-black/10 to-black to-99%" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_max(80vw,30vh)_at_center,_var(--tw-gradient-stops))] from-transparent via-black/90 to-black" />
+        <div className="absolute inset-0 bg-linear-to-b from-black from-1% via-black/10 to-black to-99%" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_max(80vw,30vh)_at_center,var(--tw-gradient-stops))] from-transparent via-black/90 to-black" />
       </div>
 
       <div className="relative z-10 flex flex-col justify-end h-full p-4 sm:p-8 lg:p-16 xl:p-20 2xl:max-w-[1900px] 2xl:mx-auto">

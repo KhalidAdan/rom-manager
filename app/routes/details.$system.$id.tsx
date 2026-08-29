@@ -468,8 +468,8 @@ export default function RomDetails() {
           alt="Background"
           className="opacity-40 object-cover h-full w-full"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black from-1% via-black/10 to-black to-99%" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
+        <div className="absolute inset-0 bg-linear-to-b from-black from-1% via-black/10 to-black to-99%" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-16">
@@ -487,7 +487,7 @@ export default function RomDetails() {
           </Button>
         </div>
         <div className="flex flex-col lg:flex-row gap-8">
-          <div className="flex-shrink-0 bg-black/40 rounded lg:rounded-none">
+          <div className="shrink-0 bg-black/40 rounded lg:rounded-none">
             <img
               src={
                 coverArt
@@ -495,7 +495,7 @@ export default function RomDetails() {
                   : "https://placehold.co/540x720"
               }
               alt={title}
-              className="aspect-video w-full h-auto object-contain lg:aspect-[3/4] lg:w-[540px] lg:h-[720px] rounded-lg shadow-lg"
+              className="aspect-video w-full h-auto object-contain lg:aspect-3/4 lg:w-[540px] lg:h-[720px] rounded-lg shadow-lg"
             />
           </div>
 

@@ -18,7 +18,7 @@ export function StaticGameCard({
   return (
     <Link to={`/details/${systemTitle}/${id}`} className="p-1">
       <Card className="bg-opacity-80 overflow-hidden">
-        <CardContent className="p-0 aspect-[3/4] relative group">
+        <CardContent className="p-0 aspect-3/4 relative group">
           <img
             src={
               `data:image/jpeg;base64,${coverArt}` ||
@@ -27,7 +27,7 @@ export function StaticGameCard({
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
+          <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent flex items-end p-4">
             <div>
               <h3 className="font-semibold text-lg">{title}</h3>
               <Badge className="rounded">{systemTitle}</Badge>
