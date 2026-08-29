@@ -29,7 +29,7 @@ export const CACHE_TTL = 900_000;
 export const CLIENT_CACHE_TTL = 300_000;
 export const CACHE_SWR = 150_000;
 
-export const SEVEN_DAYS_EPOCH = Date.now() + 7 * 24 * 60 * 60 * 1000;
+export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const EXPLORE_CACHE_KEY = "explore";
 export const GENRE_CACHE_KEY = (genreId: string) => `genre-${genreId}`;

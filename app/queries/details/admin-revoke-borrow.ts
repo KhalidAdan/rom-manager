@@ -13,16 +13,22 @@ export async function adminRevokeBorrow(gameId: number, adminId: number) {
   });
 
   if (admin?.roleId !== UserRoles.ADMIN) {
-    throw ErrorFactory.create(ErrorCode.UNAUTHORIZED);
+    throw ErrorFactory.create(ErrorCode.FORBIDDEN);
   }
 
-  return await prisma.borrowVoucher.update({
+  let voucher = await prisma.borrowVoucher.findFirst({
     where: {
       gameId,
       returnedAt: null,
     },
-    data: {
-      returnedAt: new Date(),
-    },
+  });
+
+  if (!voucher) {
+    throw ErrorFactory.create(ErrorCode.GAME_NOT_BORROWED);
+  }
+
+  return await prisma.borrowVoucher.update({
+    where: { id: voucher.id },
+    data: { returnedAt: new Date() },
   });
 }

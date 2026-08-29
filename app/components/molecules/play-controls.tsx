@@ -1,5 +1,4 @@
 import { Button, buttonVariants } from "@/components/atoms/button";
-import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { System } from "@/generated/prisma/client";
 import { FetcherWithComponents, Form, Link } from "react-router";
@@ -28,7 +27,6 @@ export function PlayControls({ id, system, playFetcher }: PlayControlsProps) {
       <Form
         method="POST"
         action={`/details/${system.title}/${id}`}
-        onSubmit={() => getCacheManager().detailedInfo.clear()}
       >
         <input type="hidden" name="intent" value={DetailsIntent.ReturnGame} />
         <input type="hidden" name="gameId" value={id} />

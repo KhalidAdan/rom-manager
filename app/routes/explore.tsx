@@ -170,7 +170,12 @@ export default function Component() {
                             intent: DetailsIntent.UpdateLastPlayed,
                             gameId: randomGame.id,
                           },
-                          { method: "POST" }
+                          {
+                            method: "POST",
+                            // explore has no action; this intent lives in
+                            // the details route
+                            action: `/details/${randomGame.system}/${randomGame.id}`,
+                          }
                         );
                       }}
                     >

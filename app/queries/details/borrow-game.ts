@@ -1,4 +1,4 @@
-import { BORROW_LIMIT, SEVEN_DAYS_EPOCH } from "@/lib/const";
+import { BORROW_LIMIT, SEVEN_DAYS_MS } from "@/lib/const";
 import { ErrorCode } from "@/lib/errors/codes";
 import { ErrorFactory } from "@/lib/errors/factory";
 import { prisma } from "@/lib/prisma.server";
@@ -57,12 +57,12 @@ export async function borrowGame(gameId: number, userId: number) {
     create: {
       gameId,
       userId,
-      expiresAt: new Date(SEVEN_DAYS_EPOCH),
+      expiresAt: new Date(Date.now() + SEVEN_DAYS_MS),
     },
     update: {
       gameId,
       userId,
-      expiresAt: new Date(SEVEN_DAYS_EPOCH),
+      expiresAt: new Date(Date.now() + SEVEN_DAYS_MS),
       returnedAt: null,
     },
   });

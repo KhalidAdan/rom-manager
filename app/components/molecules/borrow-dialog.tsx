@@ -10,7 +10,6 @@ import {
   DialogTrigger,
 } from "@/components/atoms/dialog";
 
-import { getCacheManager } from "@/lib/cache/cache.client";
 import { DetailsIntent } from "@/lib/intents";
 import { FetcherWithComponents } from "react-router";
 import { AlertCircle } from "lucide-react";
@@ -56,10 +55,7 @@ export function BorrowDialog({ id, title, fetcher }: BorrowDialogProps) {
             <AlertDescription>{fetcher.data.error}</AlertDescription>
           </Alert>
         )}
-        <fetcher.Form
-          method="POST"
-          onSubmit={() => getCacheManager().detailedInfo.clear()}
-        >
+        <fetcher.Form method="POST">
           <input type="hidden" name="intent" value={DetailsIntent.BorrowGame} />
           <input type="hidden" name="gameId" value={id} />
           <DialogFooter>
