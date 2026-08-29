@@ -2,6 +2,19 @@
 
 managing rom libraries on my homelab!
 
+## Development setup
+
+Requires Node >= 22.12. After `npm install`, generate the Prisma client
+(it lives in `app/generated/` and is gitignored):
+
+```sh
+npx prisma generate --sql
+```
+
+TypedSQL generation needs a reachable database. `DATABASE_URL` resolves
+relative to the project root (Prisma 7 config), so the default is
+`file:./prisma/dev.db`.
+
 ## Working with EmulatorJS
 
 EmulatorJS is located in the public/ folder for easy manipulation of the emulator at runtime in dev. You can add any cores you like for RetroArch and experiment with emscripten settings.
