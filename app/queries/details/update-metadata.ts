@@ -8,8 +8,8 @@ export async function updateGameMetadata(
   data: {
     title?: string;
     releaseDate?: number;
-    coverArt?: Buffer;
-    backgroundImage?: Buffer;
+    coverArt?: Uint8Array<ArrayBuffer>;
+    backgroundImage?: Uint8Array<ArrayBuffer>;
     summary?: string;
   }
 ) {

@@ -321,10 +321,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
             ? new Date(releaseDate).getTime() / 1000
             : undefined,
           coverArt: coverArt
-            ? Buffer.from(await coverArt.arrayBuffer())
+            ? new Uint8Array(await coverArt.arrayBuffer())
             : undefined,
           backgroundImage: backgroundImage
-            ? Buffer.from(await backgroundImage.arrayBuffer())
+            ? new Uint8Array(await backgroundImage.arrayBuffer())
             : undefined,
           summary,
         });

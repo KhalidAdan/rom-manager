@@ -59,13 +59,13 @@ let GameMetaData = Game.pick({
   title: z.string(),
   releaseDate: z.number().optional(),
   coverArt: z
-    .instanceof(Buffer)
+    .instanceof(Uint8Array)
     .refine((buffer) => {
       return buffer.byteLength <= MAX_UPLOAD_SIZE;
     }, "Cover Art size must be less than 5MB")
     .optional(),
   backgroundImage: z
-    .instanceof(Buffer)
+    .instanceof(Uint8Array)
     .refine((buffer) => {
       return buffer.byteLength <= MAX_UPLOAD_SIZE;
     }, "Background Image size must be less than 5MB")
@@ -170,10 +170,10 @@ limit 1;`.trim(),
     releaseDate: game.first_release_date ?? undefined,
     genres: game.genres ?? undefined,
     coverArt: coverImage
-      ? Buffer.from(await coverImage.arrayBuffer())
+      ? new Uint8Array(await coverImage.arrayBuffer())
       : undefined,
     backgroundImage: backgroundImage
-      ? Buffer.from(await backgroundImage.arrayBuffer())
+      ? new Uint8Array(await backgroundImage.arrayBuffer())
       : undefined,
   };
 }

@@ -98,7 +98,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
   }
 
-  let fileData = game.file.toString("base64");
+  let fileData = Buffer.from(game.file).toString("base64");
 
   let system = game.system.title.toLocaleLowerCase();
 

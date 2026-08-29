@@ -4,7 +4,7 @@ import path from "path";
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "./const";
 
 export function bufferToStringIfExists(
-  file: Buffer | null
+  file: Uint8Array | null
 ): undefined | string {
   if (!file) return undefined;
   return file ? Buffer.from(file).toString("base64") : undefined;
