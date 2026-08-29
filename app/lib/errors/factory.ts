@@ -62,7 +62,7 @@ export class ApplicationError extends Error {
 
   canRetry(): boolean {
     if (!this.retryable || !this.recovery) return false;
-    const { currentAttempt = 0, maxAttempts = 3 } = this.recovery;
+    let { currentAttempt = 0, maxAttempts = 3 } = this.recovery;
     return currentAttempt < maxAttempts;
   }
 
@@ -349,7 +349,7 @@ export class ErrorFactory {
       recovery?: RecoveryStrategy;
     } = {}
   ): ApplicationError {
-    const definition = this.errorDefinitions[code];
+    let definition = this.errorDefinitions[code];
     if (!definition) {
       throw new Error(`Unknown error code: ${code}`);
     }

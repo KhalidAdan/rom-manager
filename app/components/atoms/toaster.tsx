@@ -9,7 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  let { toasts } = useToast();
 
   return (
     <ToastProvider>

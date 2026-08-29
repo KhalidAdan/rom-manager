@@ -7,7 +7,7 @@ import { withRetry } from "./errors/helpers";
 interface GameJobData {
   title: string;
   fileName: string;
-  file: ArrayBuffer;
+  file: ArrayBuffer | Uint8Array;
   system: {
     title: string;
     extension: string;
@@ -56,7 +56,7 @@ export async function queueGamesForProcessing(games: GameJobData[]) {
 async function processGameMetadata(job: GameJobData) {
   return await withRetry(
     async () => {
-      const metadata = await fetchGameMetadata(
+      let metadata = await fetchGameMetadata(
         process.env.TWITCH_CLIENT_ID!,
         await getIGDBAccessToken(),
         job.title,
@@ -67,7 +67,10 @@ async function processGameMetadata(job: GameJobData) {
         data: {
           title: metadata.title ?? job.title,
           fileName: job.fileName,
-          file: Buffer.from(job.file),
+          file:
+            job.file instanceof Uint8Array
+              ? Buffer.from(job.file)
+              : Buffer.from(job.file),
           releaseDate: metadata.releaseDate ?? 0,
           rating: metadata.total_rating,
           summary: metadata.summary ?? "",
@@ -103,21 +106,25 @@ async function processGameMetadata(job: GameJobData) {
       maxAttempts: 3,
       backoffMs: 1000,
       onRetry: (attempt, error) => {
-        console.log(`Retry attempt ${attempt} for ${job.title}:`, error.message);
+        console.log(
+          `Retry attempt ${attempt} for ${job.title}:`,
+          error.message
+        );
       },
       shouldRetry: (error) => {
-        const message = error.message.toLowerCase();
-        return message.includes('rate limit') || 
-               message.includes('network') ||
-               message.includes('timeout');
-      }
+        let message = error.message.toLowerCase();
+        return (
+          message.includes("rate limit") ||
+          message.includes("network") ||
+          message.includes("timeout")
+        );
+      },
     }
   );
 }
 
 export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
   let processedCount = 0;
-  let accessToken = await getIGDBAccessToken();
 
   while (processedCount < maxJobs) {
     try {
@@ -145,17 +152,17 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
 
           await prisma.metadataJob.update({
             where: { id: job.id },
-            data: { status: "PROCESSING" }
+            data: { status: "PROCESSING" },
           });
-          
+
           await processGameMetadata({
             title: job.title,
             fileName: job.fileName,
             file: job.file,
             system: {
               title: job.systemTitle,
-              extension: job.systemExtension
-            }
+              extension: job.systemExtension,
+            },
           });
 
           await prisma.metadataJob.update({
@@ -171,12 +178,11 @@ export async function processQueuedGames(maxJobs = 100, batchSize = 10) {
           console.error(`Error processing ${job.title}:`, error);
           await prisma.metadataJob.update({
             where: { id: job.id },
-            data: { 
-              status: "FAILED", 
-              error: error instanceof Error ? error.message : String(error)
+            data: {
+              status: "FAILED",
+              error: error instanceof Error ? error.message : String(error),
             },
           });
-
         }
 
         await new Promise((resolve) => setTimeout(resolve, 250)); // IGDB rate limit

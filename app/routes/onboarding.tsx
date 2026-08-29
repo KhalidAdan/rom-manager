@@ -16,7 +16,7 @@ import { processUploadedDirectory } from "@/lib/fs.server";
 import { queueGamesForProcessing } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma.server";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+import { parseWithZod } from "@conform-to/zod/v4";
 import { Loader } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -114,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Onboarding() {
   let [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  let [isProcessing, setIsProcessing] = useState(false);
   let [form, fields] = useForm({
     shouldValidate: "onSubmit",
     onValidate({ formData }) {
@@ -173,7 +173,7 @@ export default function Onboarding() {
     }
   }, [fetcher.state]);
 
-  const isDisabled = isProcessing || isSubmitting;
+  let isDisabled = isProcessing || isSubmitting;
 
   return (
     <main className="h-full w-full flex flex-col justify-center items-center">

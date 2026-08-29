@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
-// @ts-ignore
 import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
 import { BorrowStatus } from "@/components/molecules/borrow-status";
@@ -26,13 +25,10 @@ import { UserRoles } from "@/lib/auth/providers.server";
 import { withClientCache } from "@/lib/cache/cache.client";
 import { cache, updateVersion, withCache } from "@/lib/cache/cache.server";
 import {
-  BORROW_LIMIT,
   CLIENT_CACHE_TTL,
   DETAILS_CACHE_KEY,
   EXPLORE_CACHE_KEY,
   MAX_UPLOAD_SIZE,
-  ROM_MAX_SIZE,
-  SEVEN_DAYS_EPOCH,
 } from "@/lib/const";
 import { ErrorCode } from "@/lib/errors/codes";
 import { ErrorFactory } from "@/lib/errors/factory";
@@ -41,29 +37,36 @@ import { GameDetails, getGameDetailsData } from "@/lib/game-library";
 import { DetailsIntent as Intent } from "@/lib/intents";
 import { prisma } from "@/lib/prisma.server";
 import { hasPermission } from "@/lib/utils.server";
+import { adminRevokeBorrow } from "@/queries/details/admin-revoke-borrow";
+import { borrowGame } from "@/queries/details/borrow-game";
+import { deleteGame } from "@/queries/details/delete-rom";
+import { returnGame } from "@/queries/details/return-game";
+import { updateLastPlayed } from "@/queries/details/update-last-played";
+import { updateGameMetadata } from "@/queries/details/update-metadata";
 import {
-  getFormProps,
-  getInputProps,
-  Submission,
-  useForm,
-} from "@conform-to/react";
-import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+  AdminRevokeBorrow,
+  BorrowGame,
+  ReturnGame,
+  UpdateLastPlayed,
+  UpdateMetadata,
+} from "@/schemas/details";
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { FileUpload, parseFormData } from "@mjackson/form-data-parser";
-import { System, User } from "@prisma/client";
+import { System, User } from "@/generated/prisma/client";
 import { Label } from "@radix-ui/react-label";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   ActionFunctionArgs,
   ClientLoaderFunctionArgs,
-  data as dataFn,
+  data,
   Form,
   LoaderFunctionArgs,
   redirect,
   useLoaderData,
   useNavigate,
 } from "react-router";
-import { z } from "zod";
 
 type RomDetails = {
   name: string;
@@ -73,67 +76,6 @@ type RomDetails = {
   summary: string;
   genres: string[];
 };
-
-let BorrowGame = z.object({
-  intent: z.literal(Intent.BorrowGame),
-  gameId: z.coerce.number(),
-});
-
-type BorrowGame = z.infer<typeof BorrowGame>;
-
-let ReturnGame = z.object({
-  intent: z.literal(Intent.ReturnGame),
-  gameId: z.coerce.number(),
-});
-
-type ReturnGame = z.infer<typeof ReturnGame>;
-
-let AdminRevokeBorrow = z.object({
-  intent: z.literal(Intent.AdminRevokeBorrow),
-  gameId: z.coerce.number(),
-});
-
-type AdminRevokeBorrow = z.infer<typeof AdminRevokeBorrow>;
-
-let UpdateMetadata = z
-  .object({
-    id: z.number(),
-    intent: z.literal(Intent.UpdateMetadata),
-    title: z.string(),
-    releaseDate: z.number().optional(),
-    coverArt: z
-      .instanceof(File)
-      .refine(
-        (file) => file.size <= MAX_UPLOAD_SIZE,
-        "coverArt must be no larger than 5MB"
-      )
-      .optional(),
-    summary: z.string().optional(),
-    backgroundImage: z
-      .instanceof(File)
-      .refine(
-        (file) => file.size <= MAX_UPLOAD_SIZE,
-        "backgroundImage must be no larger than 5MB"
-      )
-      .optional(),
-    file: z
-      .instanceof(File)
-      .refine(
-        (file) => file.size <= ROM_MAX_SIZE,
-        "File must be no larger than 24MB"
-      )
-      .optional(),
-  })
-  .strict();
-
-type UpdateMetadata = z.infer<typeof UpdateMetadata>;
-
-let UpdateLastPlayed = z.object({
-  intent: z.literal(Intent.UpdateLastPlayed),
-  gameId: z.number(),
-});
-
-type UpdateLastPlayed = z.infer<typeof UpdateLastPlayed>;
 
 type LoaderData = {
   user: Awaited<ReturnType<typeof requireUser>>;
@@ -157,12 +99,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   let ifNoneMatch = request.headers.get("If-None-Match");
   try {
-    let { data, eTag, headers } = await withCache<GameDetails>({
+    let {
+      data: cacheData,
+      eTag,
+      headers,
+    } = await withCache<GameDetails>({
       key: DETAILS_CACHE_KEY(gameId),
       cache,
       versionKey: "detailedInfo",
       getFreshValue: async () => {
-        const data = await getGameDetailsData(gameId);
+        let data = await getGameDetailsData(gameId);
         if (
           data.borrowVoucher &&
           data.borrowVoucher.expiresAt.getTime() < Date.now()
@@ -181,16 +127,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     });
 
     if (ifNoneMatch === eTag) {
-      // json() does not support 304 responses
+      // data() does not support 304 responses
       throw new Response(null, {
         status: 304,
         headers,
       });
     }
 
-    return dataFn(
+    return data(
       {
-        ...(data as unknown as Awaited<ReturnType<typeof getGameDetailsData>>),
+        ...(cacheData as unknown as Awaited<
+          ReturnType<typeof getGameDetailsData>
+        >),
         user,
         eTag,
       },
@@ -204,13 +152,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return throwable as unknown as LoaderData;
     }
 
-    const { code, message, status, severity } = getErrorDetails(throwable);
+    let { code, message, status, severity } = getErrorDetails(throwable);
 
     if (ErrorFactory.isApplicationError(throwable)) {
-      return dataFn({ error: `${throwable}` }, { status: throwable.status });
+      return data({ error: `${code}: ${message}` }, { status });
     }
 
-    return dataFn(
+    return data(
       {
         error: ErrorFactory.create(
           code as ErrorCode,
@@ -230,329 +178,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     );
   }
 }
-
-async function borrowGame(submission: Submission<BorrowGame>, userId: number) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { gameId } = submission.value;
-
-  updateVersion("detailedInfo");
-  cache.delete(DETAILS_CACHE_KEY(gameId));
-
-  try {
-    let activeBorrows = await prisma.borrowVoucher.findMany({
-      where: {
-        userId,
-        returnedAt: null,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      select: {
-        game: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-
-    if (activeBorrows.length >= BORROW_LIMIT) {
-      return dataFn(
-        {
-          error: ErrorFactory.create(
-            ErrorCode.BORROW_LIMIT_REACHED,
-            "You can only borrow up to 3 games at a time. You've borrowed " +
-              activeBorrows.map((ab) => ab.game.title).join(", ")
-          ).toString(),
-        },
-        { status: 400 }
-      );
-    }
-
-    let existingVoucher = await prisma.borrowVoucher.findFirst({
-      where: {
-        gameId,
-        returnedAt: null,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (existingVoucher) {
-      return dataFn(
-        { error: ErrorFactory.create(ErrorCode.GAME_BORROWED) },
-        { status: 400 }
-      );
-    }
-
-    await prisma.borrowVoucher.upsert({
-      where: {
-        gameId,
-      },
-      create: {
-        gameId,
-        userId,
-        expiresAt: new Date(SEVEN_DAYS_EPOCH),
-      },
-      update: {
-        gameId,
-        userId,
-        expiresAt: new Date(SEVEN_DAYS_EPOCH),
-        returnedAt: null,
-      },
-    });
-
-    return dataFn({ success: true });
-  } catch (error) {
-    return dataFn(
-      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
-      { status: 500 }
-    );
-  }
-}
-
-async function returnGame(submission: Submission<ReturnGame>, userId: number) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { gameId } = submission.value;
-
-  try {
-    let voucher = await prisma.borrowVoucher.findFirst({
-      where: {
-        gameId,
-        userId,
-        returnedAt: null,
-      },
-    });
-
-    if (!voucher) {
-      return dataFn(
-        { error: ErrorFactory.create(ErrorCode.GAME_NOT_BORROWED) },
-        { status: 400 }
-      );
-    }
-
-    await prisma.borrowVoucher.update({
-      where: { id: voucher.id },
-      data: { returnedAt: new Date() },
-    });
-
-    updateVersion("detailedInfo");
-    cache.delete(DETAILS_CACHE_KEY(gameId));
-
-    return { success: true };
-  } catch (error) {
-    return dataFn(
-      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
-      { status: 500 }
-    );
-  }
-}
-
-async function adminRevokeBorrow(
-  submission: Submission<AdminRevokeBorrow>,
-  adminId: number
-) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { gameId } = submission.value;
-
-  try {
-    let admin = await prisma.user.findUnique({
-      where: { id: adminId },
-      select: { roleId: true },
-    });
-
-    if (admin?.roleId !== UserRoles.ADMIN) {
-      return dataFn(
-        { error: ErrorFactory.create(ErrorCode.UNAUTHORIZED) },
-        { status: 403 }
-      );
-    }
-    await prisma.borrowVoucher.update({
-      where: {
-        gameId,
-        returnedAt: null,
-      },
-      data: {
-        returnedAt: new Date(),
-      },
-    });
-
-    updateVersion("detailedInfo");
-    cache.delete(DETAILS_CACHE_KEY(gameId));
-
-    return { success: true };
-  } catch (error) {
-    return dataFn(
-      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
-      { status: 500 }
-    );
-  }
-}
-
-async function updateMetadata(submission: Submission<UpdateMetadata>) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { id, title, releaseDate, coverArt, backgroundImage, summary } =
-    submission.value;
-
-  try {
-    const game = await prisma.game.update({
-      where: { id },
-      data: {
-        title,
-        releaseDate: releaseDate
-          ? new Date(releaseDate).getTime() / 1000
-          : undefined,
-        coverArt: coverArt
-          ? Buffer.from(await coverArt.arrayBuffer())
-          : undefined,
-        backgroundImage: backgroundImage
-          ? Buffer.from(await backgroundImage.arrayBuffer())
-          : undefined,
-        summary,
-      },
-      select: {
-        id: true,
-        system: {
-          select: {
-            title: true,
-          },
-        },
-      },
-    });
-
-    updateVersion("detailedInfo");
-    cache.delete(DETAILS_CACHE_KEY(id));
-
-    return redirect(`/details/${game.system.title}/${id}`);
-  } catch (error) {
-    return dataFn(
-      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
-      { status: 500 }
-    );
-  }
-}
-
-async function updateLastPlayed(
-  submission: Submission<UpdateLastPlayed>,
-  userId: number
-) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { gameId } = submission.value;
-
-  try {
-    await prisma.gameStats.upsert({
-      where: {
-        userId_gameId: {
-          userId,
-          gameId,
-        },
-      },
-      create: {
-        lastPlayedAt: new Date(),
-        gameId,
-        userId,
-      },
-      update: {
-        lastPlayedAt: new Date(),
-        gameId,
-        userId,
-      },
-    });
-
-    await prisma.game.update({
-      where: {
-        id: gameId,
-      },
-      data: {
-        borrowVoucher: {
-          connect: {
-            id: userId,
-          },
-        },
-      },
-    });
-
-    return { success: true };
-  } catch (error) {
-    return dataFn(
-      { error: ErrorFactory.create(ErrorCode.INTERNAL_SERVER_ERROR) },
-      { status: 500 }
-    );
-  }
-}
-
-async function deleteRom(submission: Submission<DeleteROM>) {
-  if (submission.status !== "success") {
-    return dataFn(submission.reply(), {
-      status: submission.status === "error" ? 400 : 200,
-    });
-  }
-
-  let { id } = submission.value;
-
-  try {
-    await prisma.game.delete({
-      where: {
-        id,
-      },
-    });
-  } catch (error) {
-    return dataFn(
-      {
-        error: ErrorFactory.create(ErrorCode.DATABASE_ERROR, `${error}`),
-      },
-      { status: 500 }
-    );
-  } finally {
-    updateVersion("detailedInfo");
-    updateVersion("gameLibrary");
-    updateVersion("genreInfo");
-    cache.delete(DETAILS_CACHE_KEY(id));
-
-    return { success: true };
-  }
-}
-
 export async function action({ request, params }: ActionFunctionArgs) {
   let user = await requireUser(request);
+
   let contentType = request.headers.get("content-type");
   let formData: FormData;
 
   let gameId = Number(params.id);
+  if (!gameId || isNaN(gameId)) {
+    throw ErrorFactory.create(ErrorCode.INVALID_INPUT, "Invalid game ID", {
+      params,
+    });
+  }
 
   if (contentType && contentType.includes("multipart/form-data")) {
-    const uploadHandler = async (fileUpload: FileUpload) => {
+    let uploadHandler = async (fileUpload: FileUpload) => {
       if (
         fileUpload.fieldName === "coverArt" ||
         fileUpload.fieldName === "backgroundImage"
       ) {
-        const buffer = await fileUpload.arrayBuffer();
+        let buffer = await fileUpload.arrayBuffer();
         if (buffer.byteLength > MAX_UPLOAD_SIZE) {
           throw new Error(
             `${fileUpload.fieldName} exceeds maximum size of ${MAX_UPLOAD_SIZE} bytes`
@@ -572,63 +217,170 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   let intent = formData.get("intent");
 
-  switch (intent) {
-    case Intent.BorrowGame: {
-      let submission = parseWithZod(formData, {
-        schema: BorrowGame,
-      });
-      return await borrowGame(submission, user.id);
+  try {
+    switch (intent) {
+      case Intent.BorrowGame: {
+        let submission = parseWithZod(formData, {
+          schema: BorrowGame,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { gameId } = submission.value;
+
+        updateVersion("detailedInfo");
+        cache.delete(DETAILS_CACHE_KEY(gameId));
+
+        await borrowGame(gameId, user.id);
+        return data({ success: true });
+      }
+
+      case Intent.ReturnGame: {
+        let submission = parseWithZod(formData, {
+          schema: ReturnGame,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { gameId } = submission.value;
+
+        await returnGame(gameId, user.id);
+
+        updateVersion("detailedInfo");
+        cache.delete(DETAILS_CACHE_KEY(gameId));
+
+        return data({ success: true });
+      }
+
+      case Intent.AdminRevokeBorrow: {
+        let submission = parseWithZod(formData, {
+          schema: AdminRevokeBorrow,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { gameId } = submission.value;
+
+        await adminRevokeBorrow(gameId, user.id);
+
+        updateVersion("detailedInfo");
+        cache.delete(DETAILS_CACHE_KEY(gameId));
+
+        return data({ success: true });
+      }
+
+      case Intent.UpdateLastPlayed: {
+        let submission = parseWithZod(formData, {
+          schema: UpdateLastPlayed,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { gameId } = submission.value;
+
+        await updateLastPlayed(gameId, user.id);
+        return data({ success: true });
+      }
+
+      case Intent.UpdateMetadata: {
+        let submission = parseWithZod(formData, {
+          schema: UpdateMetadata,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { id, title, releaseDate, coverArt, backgroundImage, summary } =
+          submission.value;
+
+        updateVersion("detailedInfo");
+        cache.delete(DETAILS_CACHE_KEY(id));
+
+        let updatedGame = await updateGameMetadata(id, {
+          title,
+          releaseDate: releaseDate
+            ? new Date(releaseDate).getTime() / 1000
+            : undefined,
+          coverArt: coverArt
+            ? new Uint8Array(await coverArt.arrayBuffer())
+            : undefined,
+          backgroundImage: backgroundImage
+            ? new Uint8Array(await backgroundImage.arrayBuffer())
+            : undefined,
+          summary,
+        });
+
+        return redirect(
+          `/details/${updatedGame.system.title}/${updatedGame.id}`
+        );
+      }
+
+      case Intent.DeleteRom: {
+        let submission = parseWithZod(formData, {
+          schema: DeleteROM,
+        });
+
+        if (submission.status !== "success") {
+          return data(submission.reply(), {
+            status: submission.status === "error" ? 400 : 200,
+          });
+        }
+
+        let { id } = submission.value;
+
+        try {
+          await deleteGame(id);
+        } finally {
+          updateVersion("detailedInfo");
+          updateVersion("gameLibrary");
+          updateVersion("genreInfo");
+          cache.delete(DETAILS_CACHE_KEY(id));
+          cache.delete(EXPLORE_CACHE_KEY);
+        }
+
+        return redirect("/explore");
+      }
+
+      default: {
+        throw ErrorFactory.create(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          `Details/$System/$Id action. Unknown intent: '${intent}'`
+        );
+      }
+    }
+  } catch (error) {
+    if (ErrorFactory.isApplicationError(error)) {
+      return data({ error: error.toString() }, { status: error.status });
     }
 
-    case Intent.ReturnGame: {
-      let submission = parseWithZod(formData, {
-        schema: ReturnGame,
-      });
-      return await returnGame(submission, user.id);
-    }
-
-    case Intent.AdminRevokeBorrow: {
-      let submission = parseWithZod(formData, {
-        schema: AdminRevokeBorrow,
-      });
-      cache.delete(DETAILS_CACHE_KEY(gameId));
-      return await adminRevokeBorrow(submission, user.id);
-    }
-
-    case Intent.UpdateLastPlayed: {
-      let submission = parseWithZod(formData, {
-        schema: UpdateLastPlayed,
-      });
-
-      return await updateLastPlayed(submission, user.id);
-    }
-
-    case Intent.UpdateMetadata: {
-      let submission = parseWithZod(formData, {
-        schema: UpdateMetadata,
-      });
-
-      updateVersion("detailedInfo");
-      cache.delete(DETAILS_CACHE_KEY(gameId));
-      return await updateMetadata(submission);
-    }
-
-    case Intent.DeleteRom: {
-      let submission = parseWithZod(formData, {
-        schema: DeleteROM,
-      });
-
-      updateVersion("detailedInfo");
-      cache.delete(EXPLORE_CACHE_KEY);
-      return await deleteRom(submission);
-    }
-
-    default: {
-      throw ErrorFactory.create(
-        ErrorCode.INTERNAL_SERVER_ERROR,
-        "Details/$System/$Id action. Unknown intent: '" + intent + "'"
-      );
-    }
+    return data(
+      {
+        error: ErrorFactory.create(
+          ErrorCode.INTERNAL_SERVER_ERROR,
+          `${error}`
+        ).toString(),
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -668,6 +420,29 @@ export default function RomDetails() {
   }, [shouldShowToast, refusalConfig, toast, navigate]);
 
   let data = useLoaderData<typeof loader>();
+  let loaded = data && !("error" in data) ? data : undefined;
+
+  let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
+    // seconds to milliseconds, IGDB uses seconds
+    let date = loaded?.releaseDate
+      ? new Date(loaded.releaseDate * 1000)
+      : undefined;
+
+    return date;
+  });
+
+  let [form, fields] = useForm({
+    constraint: getZodConstraint(UpdateMetadata),
+    defaultValue: loaded && {
+      id: loaded.id,
+      intent: Intent.UpdateMetadata,
+      title: loaded.title,
+      releaseDate: loaded.releaseDate,
+      coverArt: loaded.coverArt,
+      backgroundImage: loaded.backgroundImage,
+      summary: loaded.summary,
+    },
+  });
 
   if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
@@ -676,7 +451,6 @@ export default function RomDetails() {
     id,
     title,
     system,
-    releaseDate,
     coverArt,
     backgroundImage,
     summary,
@@ -684,25 +458,6 @@ export default function RomDetails() {
     borrowVoucher,
     user,
   } = data;
-  let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
-    // seconds to milliseconds, IGDB uses seconds
-    let date = releaseDate ? new Date(releaseDate * 1000) : undefined;
-
-    return date;
-  });
-
-  let [form, fields] = useForm({
-    constraint: getZodConstraint(UpdateMetadata),
-    defaultValue: {
-      id,
-      intent: Intent.UpdateMetadata,
-      title,
-      releaseDate,
-      coverArt,
-      backgroundImage,
-      summary,
-    },
-  });
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -716,8 +471,8 @@ export default function RomDetails() {
           alt="Background"
           className="opacity-40 object-cover h-full w-full"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black from-1% via-black/10 to-black to-99%" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
+        <div className="absolute inset-0 bg-linear-to-b from-black from-1% via-black/10 to-black to-99%" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-transparent via-black/20 to-black" />
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-16">
@@ -735,7 +490,7 @@ export default function RomDetails() {
           </Button>
         </div>
         <div className="flex flex-col lg:flex-row gap-8">
-          <div className="flex-shrink-0 bg-black/40 rounded lg:rounded-none">
+          <div className="shrink-0 bg-black/40 rounded lg:rounded-none">
             <img
               src={
                 coverArt
@@ -743,7 +498,7 @@ export default function RomDetails() {
                   : "https://placehold.co/540x720"
               }
               alt={title}
-              className="aspect-video w-full h-auto object-contain lg:aspect-[3/4] lg:w-[540px] lg:h-[720px] rounded-lg shadow-lg"
+              className="aspect-video w-full h-auto object-contain lg:aspect-3/4 lg:w-[540px] lg:h-[720px] rounded-lg shadow-lg"
             />
           </div>
 

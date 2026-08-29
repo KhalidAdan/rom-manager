@@ -89,7 +89,10 @@ export async function withCache<T>({
       data,
       eTag,
       headers: {
-        "Cache-Control": "must-revalidate, no-cache",
+        // no-cache (not max-age) so the browser revalidates with the ETag on
+        // every request; a max-age here serves stale loader data after
+        // mutations like returning a borrowed game.
+        "Cache-Control": "private, no-cache",
         Vary: "Authorization",
         ETag: eTag,
       },

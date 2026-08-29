@@ -102,7 +102,7 @@ export async function withRetry<T>(
     shouldRetry?: (error: Error) => boolean;
   } = {}
 ): Promise<T> {
-  const {
+  let {
     maxAttempts = 3,
     backoffMs = 1000,
     onRetry,
@@ -123,7 +123,7 @@ export async function withRetry<T>(
 
       onRetry?.(attempt, lastError);
       
-      const delay = backoffMs * Math.pow(2, attempt - 1);
+      let delay = backoffMs * Math.pow(2, attempt - 1);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

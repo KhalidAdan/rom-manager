@@ -37,7 +37,7 @@ export function GenreCards({ genres }: { genres: Category[] }) {
               <CardContent className="p-0 relative h-full">
                 <div
                   className={cn(
-                    "absolute inset-0 bg-gradient-to-br opacity-90",
+                    "absolute inset-0 bg-linear-to-br opacity-90",
                     gradients[index % gradients.length]
                   )}
                 ></div>

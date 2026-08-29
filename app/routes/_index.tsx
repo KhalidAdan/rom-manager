@@ -93,8 +93,8 @@ export default function Home() {
             alt="Nostalgic gaming scene with a young boy playing a retro console"
             className="absolute right-0 h-full w-full object-cover object-right"
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-transparent via-black/80 to-black" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-stops))] from-transparent via-black/80 to-black" />
+          <div className="absolute inset-0 bg-linear-to-r from-black via-black/10 to-transparent" />
         </div>
         <div className="relative z-10 flex flex-col pt-72 h-full text-white px-8 md:px-16 lg:px-24">
           <div className="max-w-xl space-y-4">
@@ -105,7 +105,7 @@ export default function Home() {
               Some still exist where all they ask is that you explore the land
               and save the realm. You just need to remember them.
             </p>
-            <p className="text-xl !mb-8 font-sans-serif">
+            <p className="text-xl mb-8! font-sans-serif">
               Share the magic of those adventures. Let others feel the joy of
               discovery, where every moment holds a memory and every game
               invites you to escape.

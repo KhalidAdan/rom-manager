@@ -1,8 +1,8 @@
 // app/routes/emulator.tsx
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
-import { User } from "@prisma/client";
-import { getRandomGame, getTopGenres } from "@prisma/client/sql";
+import { User } from "@/generated/prisma/client";
+import { getRandomGame, getTopGenres } from "@/generated/prisma/sql";
 
 export type GameLibrary = ReturnType<typeof getGameLibrary>;
 export type GameDetails = ReturnType<typeof getGameDetailsData>;
@@ -87,7 +87,9 @@ export async function getGameLibrary(user: User) {
         },
       },
     }),
-    prisma.$queryRawTyped(getRandomGame(settings.spotlightIncompleteGame)),
+    prisma.$queryRawTyped(
+      getRandomGame(settings.spotlightIncompleteGame ? 1 : 0)
+    ),
     prisma.$queryRawTyped(getTopGenres()),
     getLastPlayedGame(user.id, settings.spotlightIncompleteGame),
   ]);

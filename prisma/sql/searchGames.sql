@@ -5,8 +5,9 @@ SELECT
   g.coverArt,
   s.title as systemTitle
 FROM
+  (SELECT '%' || LOWER(?) || '%' AS pattern) term,
   games g
   INNER JOIN systems s ON g.system_id = s.id
 WHERE
-  LOWER(g.title) LIKE ('%' || LOWER($1) || '%')
-  OR LOWER(s.title) LIKE ('%' || LOWER($1) || '%');
+  LOWER(g.title) LIKE term.pattern
+  OR LOWER(s.title) LIKE term.pattern;

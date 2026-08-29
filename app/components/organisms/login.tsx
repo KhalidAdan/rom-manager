@@ -2,7 +2,7 @@ import { Button } from "@/components/atoms/button";
 import { cn } from "@/lib/utils";
 import { action } from "@/routes/auth.$provider";
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
-import { getZodConstraint, parseWithZod } from "@conform-to/zod";
+import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { LoaderIcon } from "lucide-react";
 import { useFetcher } from "react-router";
 import { z } from "zod";
@@ -88,7 +88,7 @@ export function Login() {
       <div className="hidden bg-muted lg:block">
         <img
           src="/login-photo.jpg"
-          alt="Image"
+          alt="Shelves of retro game cartridges"
           width="1920"
           height="1080"
           className="h-full w-full object-cover dark:brightness-[0.8] dark:grayscale"

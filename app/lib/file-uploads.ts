@@ -20,7 +20,7 @@ export async function storeGameFile(
   file: File | FileUpload,
   type: "cover" | "background" | "rom"
 ) {
-  const key = getStorageKey(gameId, type);
+  let key = getStorageKey(gameId, type);
   await storage.set(key, file);
   return storage.get(key);
 }

@@ -38,7 +38,10 @@ export function DatePicker({
           selected={date}
           onSelect={setDate}
           defaultMonth={date}
-          initialFocus
+          // Focus moves into the popover the user just opened, not onto
+          // page load — the case jsx-a11y/no-autofocus is meant to catch.
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus
         />
       </PopoverContent>
     </Popover>

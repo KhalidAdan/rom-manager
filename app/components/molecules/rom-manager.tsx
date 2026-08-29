@@ -1,5 +1,5 @@
 import { SUPPORTED_SYSTEMS_WITH_EXTENSIONS } from "@/lib/const";
-import { Game, System } from "@prisma/client";
+import { Game, System } from "@/generated/prisma/client";
 import { GameCard } from "./game-card";
 import { GenericCarousel } from "./generic-carousel";
 

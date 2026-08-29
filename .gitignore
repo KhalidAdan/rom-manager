@@ -15,3 +15,9 @@ scratch.md
 
 ## OS Garbo
 .DS_Store
+
+# React Router generated types
+.react-router/
+
+# Prisma generated client
+app/generated/

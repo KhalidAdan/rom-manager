@@ -12,7 +12,7 @@ export async function loader() {
   return redirect("/authenticate");
 }
 
-export async function action({ request, params, context }: ActionFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
   let providerName = Provider.parse(params.provider);
   try {
     let user = await authenticator.authenticate(providerName, request);

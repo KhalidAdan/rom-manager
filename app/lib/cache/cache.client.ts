@@ -3,7 +3,7 @@ import type { Params } from "react-router";
 import type { GameDetails, GameLibrary } from "../game-library";
 import type { GenreInfo } from "../genre-library";
 
-interface WithClientCacheOptions<T, S extends StoreKey> {
+interface WithClientCacheOptions<S extends StoreKey> {
   store: S;
   cacheKey: string | ((params: Params<string>) => string);
   ttl: number;
@@ -118,18 +118,19 @@ export const getCacheManager = () => cacheManager;
  * Note: Client TTL is roughly 25% of server TTL, but configurable
  * Note: The store is the specific indexedDB database, cacheKey is the KV key
  */
-export async function withClientCache<T, S extends StoreKey>({
+export async function withClientCache<S extends StoreKey>({
   store,
   cacheKey,
   ttl,
   serverLoader,
   params,
-}: WithClientCacheOptions<T, S>) {
+}: WithClientCacheOptions<S>) {
   try {
     let key = typeof cacheKey === "function" ? cacheKey(params) : cacheKey;
     let cached = await cacheManager[store].get(key);
+    let now = Date.now();
 
-    if (cached && Date.now() - cached.timestamp < ttl) {
+    if (cached && now - cached.timestamp < ttl) {
       return cached.data;
     }
 
@@ -138,7 +139,7 @@ export async function withClientCache<T, S extends StoreKey>({
 
       await cacheManager[store].set(key, {
         data: freshData,
-        timestamp: Date.now(),
+        timestamp: now,
         eTag: freshData.eTag,
       });
 
@@ -147,7 +148,7 @@ export async function withClientCache<T, S extends StoreKey>({
       if (error instanceof Response && error.status === 304 && cached) {
         await cacheManager[store].set(key, {
           data: { ...cached } as any,
-          timestamp: Date.now(),
+          timestamp: now,
           eTag: cached.eTag,
         });
         return cached;

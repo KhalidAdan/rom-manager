@@ -10,7 +10,7 @@ import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { RefusalReason } from "@/lib/refusal-reasons";
 import { Submission } from "@conform-to/react";
-import { parseWithZod } from "@conform-to/zod";
+import { parseWithZod } from "@conform-to/zod/v4";
 import { useCallback, useRef } from "react";
 import {
   ActionFunctionArgs,
@@ -98,7 +98,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
   }
 
-  let fileData = game.file.toString("base64");
+  let fileData = Buffer.from(game.file).toString("base64");
 
   let system = game.system.title.toLocaleLowerCase();
 
@@ -187,7 +187,7 @@ export default function Play() {
 
   return (
     <main className="bg-muted/40 min-h-screen pt-6">
-      <div className="max-w-4xl aspect-[4/3] mx-auto bg-black rounded-2xl">
+      <div className="max-w-4xl aspect-4/3 mx-auto bg-black rounded-2xl">
         <div id="game" className="h-full w-full bg-background"></div>
       </div>
       <div className="max-w-4xl mx-auto mt-6 space-y-4">
