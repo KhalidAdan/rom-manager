@@ -25,24 +25,6 @@ export async function getFilesRecursively(dir: string): Promise<string[]> {
   return files.flat();
 }
 
-interface GameSystem {
-  title: string;
-  extension: string;
-}
-
-interface Game {
-  fileName: string;
-  title: string;
-  location: string;
-  releaseDate: Date | null;
-  coverArt: string | null;
-  backgroundImage: string | null;
-  summary: string;
-  createdAt: Date;
-  updatedAt: Date | null;
-  system: GameSystem;
-}
-
 export function filterOutUnsupportedFileTypes(
   files: {
     title: string;

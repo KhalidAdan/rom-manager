@@ -21,8 +21,9 @@ export function StaticGameCard({
         <CardContent className="p-0 aspect-3/4 relative group">
           <img
             src={
-              `data:image/jpeg;base64,${coverArt}` ||
-              "/placeholder.svg?height=300&width=200"
+              coverArt
+                ? `data:image/jpeg;base64,${coverArt}`
+                : "/placeholder.svg?height=300&width=200"
             }
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"

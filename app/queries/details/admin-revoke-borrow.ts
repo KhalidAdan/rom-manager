@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma.server";
  * Admin revoke a borrow voucher
  */
 export async function adminRevokeBorrow(gameId: number, adminId: number) {
-  const admin = await prisma.user.findUnique({
+  let admin = await prisma.user.findUnique({
     where: { id: adminId },
     select: { roleId: true },
   });

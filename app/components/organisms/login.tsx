@@ -88,7 +88,7 @@ export function Login() {
       <div className="hidden bg-muted lg:block">
         <img
           src="/login-photo.jpg"
-          alt="Image"
+          alt="Shelves of retro game cartridges"
           width="1920"
           height="1080"
           className="h-full w-full object-cover dark:brightness-[0.8] dark:grayscale"

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma.server";
  * Return a borrowed game
  */
 export async function returnGame(gameId: number, userId: number) {
-  const voucher = await prisma.borrowVoucher.findFirst({
+  let voucher = await prisma.borrowVoucher.findFirst({
     where: {
       gameId,
       userId,

@@ -70,7 +70,7 @@ export function DiscoveryQueue({ games }: { games: DGame[] }) {
               <DialogHeader>
                 <DialogTitle>Your Discovery Queue</DialogTitle>
                 <DialogDescription>
-                  Here are some games we think you'll love. Use the arrows to
+                  Here are some games we think you&apos;ll love. Use the arrows to
                   navigate through the queue.
                 </DialogDescription>
               </DialogHeader>

@@ -56,7 +56,7 @@ export async function queueGamesForProcessing(games: GameJobData[]) {
 async function processGameMetadata(job: GameJobData) {
   return await withRetry(
     async () => {
-      const metadata = await fetchGameMetadata(
+      let metadata = await fetchGameMetadata(
         process.env.TWITCH_CLIENT_ID!,
         await getIGDBAccessToken(),
         job.title,
@@ -112,7 +112,7 @@ async function processGameMetadata(job: GameJobData) {
         );
       },
       shouldRetry: (error) => {
-        const message = error.message.toLowerCase();
+        let message = error.message.toLowerCase();
         return (
           message.includes("rate limit") ||
           message.includes("network") ||

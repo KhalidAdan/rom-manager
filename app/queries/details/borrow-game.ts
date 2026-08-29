@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma.server";
  */
 export async function borrowGame(gameId: number, userId: number) {
   // Check if user has reached their borrow limit
-  const activeBorrows = await prisma.borrowVoucher.findMany({
+  let activeBorrows = await prisma.borrowVoucher.findMany({
     where: {
       userId,
       returnedAt: null,
@@ -35,7 +35,7 @@ export async function borrowGame(gameId: number, userId: number) {
   }
 
   // Check if game is already borrowed
-  const existingVoucher = await prisma.borrowVoucher.findFirst({
+  let existingVoucher = await prisma.borrowVoucher.findFirst({
     where: {
       gameId,
       returnedAt: null,

@@ -124,7 +124,7 @@ const SearchBar = ({
   defaultValue: string;
   onSearch: (searchValue: string) => void;
 }) => {
-  const [searchValue, setSearchValue] = useState(defaultValue || "");
+  let [searchValue] = useState(defaultValue || "");
 
   return (
     <Input

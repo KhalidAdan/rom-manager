@@ -79,7 +79,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       return throwable as unknown as ReturnType<Awaited<typeof getGameLibrary>>;
     }
 
-    const { code, message, status, severity } = getErrorDetails(throwable);
+    let { code, message, status, severity } = getErrorDetails(throwable);
 
     console.error("Game library loader error:", {
       code,
@@ -121,7 +121,7 @@ export async function clientLoader({
   });
 }
 
-export default function Component({ loaderData }: Route.ComponentProps) {
+export default function Component() {
   let fetcher = useFetcher({ key: "update-last-played-game" });
   let data = useLoaderData<typeof loader>();
   if ("error" in data) return <div>Error occurred, {data.error.message}</div>;

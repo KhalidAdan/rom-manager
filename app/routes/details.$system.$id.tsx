@@ -108,7 +108,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       cache,
       versionKey: "detailedInfo",
       getFreshValue: async () => {
-        const data = await getGameDetailsData(gameId);
+        let data = await getGameDetailsData(gameId);
         if (
           data.borrowVoucher &&
           data.borrowVoucher.expiresAt.getTime() < Date.now()
@@ -152,7 +152,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       return throwable as unknown as LoaderData;
     }
 
-    const { code, message, status, severity } = getErrorDetails(throwable);
+    let { code, message, status, severity } = getErrorDetails(throwable);
 
     if (ErrorFactory.isApplicationError(throwable)) {
       return data({ error: `${code}: ${message}` }, { status });
@@ -179,9 +179,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 }
 export async function action({ request, params }: ActionFunctionArgs) {
-  const user = await requireUser(request);
+  let user = await requireUser(request);
 
-  const contentType = request.headers.get("content-type");
+  let contentType = request.headers.get("content-type");
   let formData: FormData;
 
   let gameId = Number(params.id);
@@ -192,12 +192,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   if (contentType && contentType.includes("multipart/form-data")) {
-    const uploadHandler = async (fileUpload: FileUpload) => {
+    let uploadHandler = async (fileUpload: FileUpload) => {
       if (
         fileUpload.fieldName === "coverArt" ||
         fileUpload.fieldName === "backgroundImage"
       ) {
-        const buffer = await fileUpload.arrayBuffer();
+        let buffer = await fileUpload.arrayBuffer();
         if (buffer.byteLength > MAX_UPLOAD_SIZE) {
           throw new Error(
             `${fileUpload.fieldName} exceeds maximum size of ${MAX_UPLOAD_SIZE} bytes`
@@ -215,12 +215,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
     formData = await request.formData();
   }
 
-  const intent = formData.get("intent");
+  let intent = formData.get("intent");
 
   try {
     switch (intent) {
       case Intent.BorrowGame: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: BorrowGame,
         });
 
@@ -230,7 +230,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { gameId } = submission.value;
+        let { gameId } = submission.value;
 
         updateVersion("detailedInfo");
         cache.delete(DETAILS_CACHE_KEY(gameId));
@@ -240,7 +240,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       case Intent.ReturnGame: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: ReturnGame,
         });
 
@@ -250,7 +250,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { gameId } = submission.value;
+        let { gameId } = submission.value;
 
         await returnGame(gameId, user.id);
 
@@ -261,7 +261,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       case Intent.AdminRevokeBorrow: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: AdminRevokeBorrow,
         });
 
@@ -271,7 +271,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { gameId } = submission.value;
+        let { gameId } = submission.value;
 
         await adminRevokeBorrow(gameId, user.id);
 
@@ -282,7 +282,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       case Intent.UpdateLastPlayed: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: UpdateLastPlayed,
         });
 
@@ -292,14 +292,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { gameId } = submission.value;
+        let { gameId } = submission.value;
 
         await updateLastPlayed(gameId, user.id);
         return data({ success: true });
       }
 
       case Intent.UpdateMetadata: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: UpdateMetadata,
         });
 
@@ -309,13 +309,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { id, title, releaseDate, coverArt, backgroundImage, summary } =
+        let { id, title, releaseDate, coverArt, backgroundImage, summary } =
           submission.value;
 
         updateVersion("detailedInfo");
         cache.delete(DETAILS_CACHE_KEY(id));
 
-        const updatedGame = await updateGameMetadata(id, {
+        let updatedGame = await updateGameMetadata(id, {
           title,
           releaseDate: releaseDate
             ? new Date(releaseDate).getTime() / 1000
@@ -335,7 +335,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
 
       case Intent.DeleteRom: {
-        const submission = parseWithZod(formData, {
+        let submission = parseWithZod(formData, {
           schema: DeleteROM,
         });
 
@@ -345,7 +345,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           });
         }
 
-        const { id } = submission.value;
+        let { id } = submission.value;
 
         try {
           await deleteGame(id);
@@ -420,6 +420,29 @@ export default function RomDetails() {
   }, [shouldShowToast, refusalConfig, toast, navigate]);
 
   let data = useLoaderData<typeof loader>();
+  let loaded = data && !("error" in data) ? data : undefined;
+
+  let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
+    // seconds to milliseconds, IGDB uses seconds
+    let date = loaded?.releaseDate
+      ? new Date(loaded.releaseDate * 1000)
+      : undefined;
+
+    return date;
+  });
+
+  let [form, fields] = useForm({
+    constraint: getZodConstraint(UpdateMetadata),
+    defaultValue: loaded && {
+      id: loaded.id,
+      intent: Intent.UpdateMetadata,
+      title: loaded.title,
+      releaseDate: loaded.releaseDate,
+      coverArt: loaded.coverArt,
+      backgroundImage: loaded.backgroundImage,
+      summary: loaded.summary,
+    },
+  });
 
   if (!data) return <div>Error occured, no data returned from loader</div>;
   if ("error" in data) return <div>Error occurred, {data && data.error}</div>;
@@ -428,7 +451,6 @@ export default function RomDetails() {
     id,
     title,
     system,
-    releaseDate,
     coverArt,
     backgroundImage,
     summary,
@@ -436,25 +458,6 @@ export default function RomDetails() {
     borrowVoucher,
     user,
   } = data;
-  let [expensiveDate, setExpensiveDate] = useState<Date | undefined>(() => {
-    // seconds to milliseconds, IGDB uses seconds
-    let date = releaseDate ? new Date(releaseDate * 1000) : undefined;
-
-    return date;
-  });
-
-  let [form, fields] = useForm({
-    constraint: getZodConstraint(UpdateMetadata),
-    defaultValue: {
-      id,
-      intent: Intent.UpdateMetadata,
-      title,
-      releaseDate,
-      coverArt,
-      backgroundImage,
-      summary,
-    },
-  });
 
   return (
     <div className="relative min-h-screen overflow-hidden">

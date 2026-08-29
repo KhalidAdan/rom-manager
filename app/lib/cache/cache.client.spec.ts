@@ -22,9 +22,9 @@ vi.mock("localforage", () => {
 });
 
 describe("cache.client.ts", () => {
-  const TTL = 5000;
+  let TTL = 5000;
   let mockStore: ReturnType<
-    // @ts-expect-error
+    // @ts-expect-error -- localforage types createInstance as a value, not a constructable type
     typeof import("localforage").default.createInstance
   >;
 
@@ -171,8 +171,8 @@ describe("cache.client.ts", () => {
       });
 
       expect(result.data).toEqual(mockData);
-      const setItemCall = vi.mocked(mockStore.setItem).mock.calls[0];
-      const [key, savedData] = setItemCall;
+      let setItemCall = vi.mocked(mockStore.setItem).mock.calls[0];
+      let [key, savedData] = setItemCall;
 
       // Check the structure piece by piece
       expect(key).toBe("test-key");

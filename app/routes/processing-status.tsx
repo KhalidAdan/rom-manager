@@ -17,7 +17,7 @@ import {
 } from "react-router";
 
 export async function loader() {
-  const jobs = await prisma.metadataJob.findMany({
+  let jobs = await prisma.metadataJob.findMany({
     where: { status: "PENDING" },
   });
 
@@ -29,7 +29,7 @@ export async function loader() {
   return null;
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action(_args: ActionFunctionArgs) {
   let [pending, completed, failed] = await Promise.all([
     prisma.metadataJob.count({ where: { status: "PENDING" } }),
     prisma.metadataJob.count({ where: { status: "COMPLETED" } }),
