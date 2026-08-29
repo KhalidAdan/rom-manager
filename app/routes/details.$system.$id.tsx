@@ -339,12 +339,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
         });
 
         // Invalidate after the write commits so a concurrent loader can't
-        // re-cache pre-update data for the rest of the TTL. Title/cover also
-        // show on explore, so bump the library cache too.
+        // re-cache pre-update data for the rest of the TTL. Metadata shows on
+        // explore and the per-genre pages too, and genre cache keys can't be
+        // enumerated here — updateVersion only changes ETags, it never evicts
+        // — so this rare admin mutation clears the whole cache.
         updateVersion("detailedInfo");
         updateVersion("gameLibrary");
-        cache.delete(DETAILS_CACHE_KEY(id));
-        cache.delete(EXPLORE_CACHE_KEY);
+        updateVersion("genreInfo");
+        cache.clear();
 
         return redirect(
           `/details/${updatedGame.system.title}/${updatedGame.id}`
@@ -367,11 +369,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
         try {
           await deleteGame(id);
         } finally {
+          // Deleted games show on explore and genre pages; genre keys can't
+          // be enumerated here, so clear everything (rare admin mutation).
           updateVersion("detailedInfo");
           updateVersion("gameLibrary");
           updateVersion("genreInfo");
-          cache.delete(DETAILS_CACHE_KEY(id));
-          cache.delete(EXPLORE_CACHE_KEY);
+          cache.clear();
         }
 
         return redirect("/explore");
