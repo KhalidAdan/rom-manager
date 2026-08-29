@@ -21,7 +21,8 @@
     "@epic-web/remember": "^1.1.0",
     "@mjackson/file-storage": "^0.7.0",
     "@mjackson/form-data-parser": "^0.9.1",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-better-sqlite3": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-dialog": "^1.1.2",
@@ -43,13 +44,14 @@
     "clsx": "^2.1.1",
     "cookie": "^1.0.2",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.4.2",
     "embla-carousel-react": "^8.3.0",
     "intl-parse-accept-language": "^1.0.0",
     "isbot": "^4.1.0",
     "localforage": "^1.10.0",
     "lru-cache": "^11.0.1",
     "lucide-react": "^0.447.0",
-    "prisma": "^6.19.3",
+    "prisma": "^7.10.0",
     "react": "^19.2.8",
     "react-day-picker": "^8.10.1",
     "react-dom": "^19.2.8",
@@ -90,8 +92,5 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.server.ts"
   }
 }

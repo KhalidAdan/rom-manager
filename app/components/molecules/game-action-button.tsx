@@ -1,7 +1,7 @@
 import { getGameDetailsData } from "@/lib/game-library";
 import { isActiveBorrow as borrowCheck } from "@/lib/utils";
 import { action } from "@/routes/details.$system.$id";
-import { System, User } from "@prisma/client";
+import { System, User } from "@/generated/prisma/client";
 import { useFetcher } from "react-router";
 import { Button } from "../atoms/button";
 import { BorrowDialog } from "./borrow-dialog";

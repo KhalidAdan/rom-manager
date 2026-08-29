@@ -1,5 +1,5 @@
 // import { userRoles } from "@/lib/auth/providers.server";
-// import { PrismaClient } from "@prisma/client";
+// import { PrismaClient } from "@/generated/prisma/client";
 // let prisma = new PrismaClient();
 
 // async function main() {

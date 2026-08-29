@@ -1,5 +1,5 @@
 import { destroySession, getSession } from "@/lib/auth/session.server";
-import { User } from "@prisma/client";
+import { User } from "@/generated/prisma/client";
 import { redirect } from "react-router";
 import { Authenticator } from "remix-auth";
 import { prisma } from "../prisma.server";

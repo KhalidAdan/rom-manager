@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/auth.server";
 import { bufferToStringIfExists } from "@/lib/fs.server";
 import { prisma } from "@/lib/prisma.server";
 import { cn } from "@/lib/utils";
-import { getTopGenres, searchGames } from "@prisma/client/sql";
+import { getTopGenres, searchGames } from "@/generated/prisma/sql";
 import { LoaderFunctionArgs } from "react-router";
 import { Link, useFetcher, useLoaderData, useSearchParams } from "react-router";
 import { useCallback, useEffect, useState } from "react";

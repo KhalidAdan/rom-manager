@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Game, System } from "@prisma/client";
+import { Game, System } from "@/generated/prisma/client";
 import { Link } from "react-router";
 import { ChevronRight, Star } from "lucide-react";
 import { useState } from "react";

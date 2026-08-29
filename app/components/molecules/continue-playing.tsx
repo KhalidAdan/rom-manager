@@ -1,4 +1,4 @@
-import { Game, System } from "@prisma/client";
+import { Game, System } from "@/generated/prisma/client";
 import { Link } from "react-router";
 import { PlayCircle } from "lucide-react";
 import { Badge } from "../atoms/badge";

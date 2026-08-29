@@ -1,4 +1,4 @@
-import { Genre } from "@prisma/client";
+import { Genre } from "@/generated/prisma/client";
 import { Link } from "react-router";
 import { Card, CardContent } from "../atoms/card";
 

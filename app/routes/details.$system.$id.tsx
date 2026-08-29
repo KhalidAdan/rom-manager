@@ -53,7 +53,7 @@ import {
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { getZodConstraint, parseWithZod } from "@conform-to/zod/v4";
 import { FileUpload, parseFormData } from "@mjackson/form-data-parser";
-import { System, User } from "@prisma/client";
+import { System, User } from "@/generated/prisma/client";
 import { Label } from "@radix-ui/react-label";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
